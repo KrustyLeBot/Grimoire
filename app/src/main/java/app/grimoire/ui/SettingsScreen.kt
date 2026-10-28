@@ -35,6 +35,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.collectAsState
 import app.grimoire.data.WebSearch
+import app.grimoire.book.BookTheme
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.FilterChip
 import app.grimoire.MainViewModel
 import app.grimoire.Screen
 import app.grimoire.suite.AboutSettings
@@ -58,7 +61,7 @@ fun SettingsScreen(vm: MainViewModel) {
     val data by vm.data.collectAsState()
     var bookBytes by remember { mutableLongStateOf(vm.app.books.sizeBytes()) }
     var confirmBooks by remember { mutableStateOf(false) }
-    var googleKey by remember { mutableStateOf(settings.googleBooksKey.orEmpty()) }
+    var bookTheme by remember { mutableStateOf(BookTheme.of(settings.bookTheme)) }
     var editing by remember { mutableStateOf<Pair<Int?, WebSearch>?>(null) }
 
     Scaffold(topBar = { SuiteTopBar("Paramètres", onBack = { vm.back() }) }) { padding ->
@@ -99,11 +102,14 @@ fun SettingsScreen(vm: MainViewModel) {
                 Text("Fichiers EPUB : ${bookBytes / 1_000_000} Mo", fontWeight = FontWeight.SemiBold)
                 SettingsHint("Gardés sur le téléphone seulement. Ta lecture est synchronisée, et un livre se retélécharge depuis sa page.")
                 OutlinedButton(onClick = { confirmBooks = true }, enabled = bookBytes > 0) { Text("Supprimer les fichiers") }
-                OutlinedTextField(
-                    googleKey, { googleKey = it; settings.googleBooksKey = it },
-                    label = { Text("Clé API Google Books (facultatif)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                )
-                SettingsHint("Les infos des livres viennent d'Open Library et de la BnF. Google Books ajoute les résumés, mais demande une clé gratuite (console.cloud.google.com › API Books).")
+                Text("Couleurs de lecture", fontWeight = FontWeight.SemiBold)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    BookTheme.entries.forEach { t ->
+                        FilterChip(bookTheme == t, { bookTheme = t; settings.bookTheme = t.raw }, { Text(t.label) })
+                    }
+                }
+                SettingsHint("Indépendant du thème de l'app : Papier imite le papier, Auto suit le thème du téléphone. Aussi réglable dans le lecteur.")
+                SettingsHint("Les infos des livres (couverture, auteurs, résumé) viennent d'Open Library et du catalogue de la BnF, d'après l'ISBN.")
             }
 
             SectionTitle("Recherche web")

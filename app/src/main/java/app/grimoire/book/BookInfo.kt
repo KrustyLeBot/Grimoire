@@ -24,7 +24,7 @@ data class BookInfo(
     val language: String? = null,
     val description: String? = null,
     val cover: String? = null,
-    /** The edition's ISBNs (ISBN-13), digital and print, as the catalogue lists them. */
+    /** The edition's ISBNs (ISBN-13), digital and print, as the catalogues list them. */
     val isbns: List<String> = emptyList(),
 ) {
     /** Fields this one lacks, taken from [other]; ISBNs are merged. */
@@ -43,26 +43,15 @@ data class BookInfo(
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
 
-        /** Every volume of a Google Books `volumes` answer, in its order. */
-        fun fromGoogle(text: String): List<BookInfo> =
-            (json.parseToJsonElement(text) as? JsonObject)?.arr("items").orEmpty().mapNotNull { item ->
-                val v = (item as? JsonObject)?.obj("volumeInfo") ?: return@mapNotNull null
-                val title = v.str("title") ?: return@mapNotNull null
-                BookInfo(
-                    title = title,
-                    subtitle = v.str("subtitle"),
-                    authors = v.strings("authors"),
-                    publisher = v.str("publisher"),
-                    published = v.str("publishedDate"),
-                    pages = v.int("pageCount"),
-                    language = v.str("language"),
-                    description = v.str("description"),
-                    cover = v.obj("imageLinks")?.let { it.str("thumbnail") ?: it.str("smallThumbnail") }
-                        ?.replace("http://", "https://")?.replace("&edge=curl", ""),
-                    isbns = v.arr("industryIdentifiers").orEmpty()
-                        .mapNotNull { (it as? JsonObject)?.str("identifier")?.let(Isbn::normalize) }.distinct(),
-                )
-            }
+        /** Open Library edition record (`/isbn/<isbn>.json`): the key of its work. */
+        fun workOf(text: String): String? =
+            ((json.parseToJsonElement(text) as? JsonObject)?.arr("works")?.firstOrNull() as? JsonObject)?.str("key")
+
+        /** Open Library work record: its description, a string or `{"value": …}`. */
+        fun summaryOf(text: String): String? {
+            val d = (json.parseToJsonElement(text) as? JsonObject)?.get("description") ?: return null
+            return ((d as? JsonObject)?.str("value") ?: (d as? JsonPrimitive)?.contentOrNull)?.trim()?.ifEmpty { null }
+        }
 
         /** Open Library `api/books?jscmd=data` answer for one ISBN. */
         fun fromOpenLibrary(text: String, isbn: String): BookInfo? {

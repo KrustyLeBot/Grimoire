@@ -6,19 +6,12 @@ import org.junit.Test
 
 class BookInfoTest {
     @Test
-    fun google() {
-        val json = """{"totalItems":1,"items":[{"volumeInfo":{"title":"Le Petit Prince","authors":["Antoine de Saint-Exupéry"],
-            "publisher":"Gallimard","publishedDate":"2007","description":"Un aviateur…","pageCount":96,"language":"fr",
-            "industryIdentifiers":[{"type":"ISBN_10","identifier":"2070612759"},{"type":"ISBN_13","identifier":"9782070612758"},{"type":"OTHER","identifier":"UOM:39015"}],
-            "imageLinks":{"thumbnail":"http://books.google.com/books/content?id=x&printsec=frontcover&img=1&zoom=1&edge=curl&source=gbs_api"}}}]}"""
-        val i = BookInfo.fromGoogle(json).single()
-        assertEquals("Le Petit Prince", i.title)
-        assertEquals(listOf("Antoine de Saint-Exupéry"), i.authors)
-        assertEquals(96, i.pages)
-        assertEquals("https://books.google.com/books/content?id=x&printsec=frontcover&img=1&zoom=1&source=gbs_api", i.cover)
-        assertEquals(listOf("9782070612758"), i.isbns)
-        assertEquals("fr", i.language)
-        assertEquals(emptyList<BookInfo>(), BookInfo.fromGoogle("""{"totalItems":0}"""))
+    fun openLibrarySummary() {
+        assertEquals("/works/OL45883W", BookInfo.workOf("""{"title":"x","works":[{"key":"/works/OL45883W"}]}"""))
+        assertNull(BookInfo.workOf("""{"title":"x"}"""))
+        assertEquals("Un aviateur…", BookInfo.summaryOf("""{"description":{"type":"/type/text","value":" Un aviateur… "}}"""))
+        assertEquals("Court", BookInfo.summaryOf("""{"description":"Court"}"""))
+        assertNull(BookInfo.summaryOf("""{"title":"x"}"""))
     }
 
     @Test

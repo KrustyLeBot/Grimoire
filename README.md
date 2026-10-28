@@ -20,7 +20,7 @@ same self-update, same Proton Drive sync through Synchrotron.
 - Offline downloads (Wi-Fi only by default), stored in the app's private storage: never synced.
 - **Books (EPUB)**: open an EPUB from a file manager, a browser download or a shared link, or
   with « + ». The book is identified by its ISBN; title, authors, summary, language and cover
-  come from Google Books / Open Library rather than from the file. Reader in pages or scroll,
+  come from the BnF catalogue and Open Library rather than from the file. Reader in pages or scroll, light / dark / paper colours,
   table of contents, text size; position and "read" are synced, the file is not: another phone
   shows the book with its ISBN until its EPUB is opened there too.
 

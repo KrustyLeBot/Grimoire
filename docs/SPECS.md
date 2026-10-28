@@ -150,9 +150,9 @@ nothing and fails. The app updates itself from that release (suite kit).
   Without ISBN: `id-<hash of the package identifier>`. On import, a library book sharing any ISBN
   with the file gets the file (same edition in another file, or on another phone). Each language
   or edition has its own ISBN, hence its own progress.
-- **Description**: looked up online, not taken from the file: Google Books by ISBN (each ISBN of
-  the file in turn), Open Library to fill gaps and for larger covers; without ISBN, a Google Books
-  search by title, author and language. Cached per phone (`book-info/<id>.json`); the title, cover
+- **Description**: looked up online, not taken from the file, without account or key: the BnF
+  catalogue (SRU, Dublin Core) and Open Library (data, covers, the work's summary) by ISBN, each
+  ISBN of the file in turn; without ISBN, an Open Library search by title and author. Cached per phone (`book-info/<id>.json`); the title, cover
   URL and the edition's ISBNs go to `library.json` so every phone shows them. The EPUB's own cover
   is only a fallback on the phone that has the file.
 - **Progress**: in `progress.json` under `files:<id>`: `last.chapter` = spine index, `last.page` =
@@ -160,6 +160,7 @@ nothing and fails. The app updates itself from that release (suite kit).
   (automatically at the end, or by hand).
 - **Missing file**: a book in the library whose file is not on this phone shows "fichier absent",
   its ISBN(s) to copy, and "Choisir le fichier".
-- **Reader**: WebView fed from the zip (no network), theme colours and text size forced, "Pages"
-  (CSS columns, swipe or side taps) or "Défilement", table of contents, previous/next part.
+- **Reader**: WebView fed from the zip (no network), text size and page colours forced (Auto,
+  Clair, Sombre, Papier, apart from the app's theme), "Pages" (CSS columns sized in pixels, swipe
+  or side taps) or "Défilement", table of contents, previous/next part.
 

@@ -36,6 +36,8 @@ class BookReaderModel(private val app: GrimoireApp, val id: String, scope: Corou
         private set
     var textSize by mutableIntStateOf(app.settings.textSize)
         private set
+    var theme by mutableStateOf(BookTheme.of(app.settings.bookTheme))
+        private set
     /** Bumped whenever the page must be reloaded (chapter, mode, text size). */
     var generation by mutableIntStateOf(0)
         private set
@@ -106,6 +108,14 @@ class BookReaderModel(private val app: GrimoireApp, val id: String, scope: Corou
         if (size == textSize) return
         textSize = size
         app.settings.textSize = size
+        start = fraction
+        generation++
+    }
+
+    fun setTheme(t: BookTheme) {
+        if (t == theme) return
+        theme = t
+        app.settings.bookTheme = t.raw
         start = fraction
         generation++
     }

@@ -14,6 +14,10 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,7 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -79,43 +82,68 @@ fun BookReaderScreen(model: BookReaderModel, onBack: () -> Unit) {
     BackHandler { if (toc) toc = false else onBack() }
 
     val colors = MaterialTheme.colorScheme
-    val page = Page(colors.surface.css(), colors.onSurface.css(), colors.primary.css())
-    Box(Modifier.fillMaxSize().background(colors.surface)) {
+    val dark = isSystemInDarkTheme()
+    val page = when (model.theme) {
+        BookTheme.AUTO -> if (dark) PageColors.DARK else PageColors.LIGHT
+        BookTheme.LIGHT -> PageColors.LIGHT
+        BookTheme.DARK -> PageColors.DARK
+        BookTheme.PAPER -> PageColors.PAPER
+    }
+    Box(Modifier.fillMaxSize().background(Color(android.graphics.Color.parseColor(page.background)))) {
         val epub = model.epub
         when {
             model.error != null -> Column(Modifier.fillMaxSize().padding(32.dp), Arrangement.Center, Alignment.CenterHorizontally) {
-                Text(model.error.orEmpty(), textAlign = TextAlign.Center)
+                Text(model.error.orEmpty(), textAlign = TextAlign.Center, color = Color(android.graphics.Color.parseColor(page.text)))
                 TextButton(onClick = onBack) { Text("Retour") }
             }
             epub == null -> CircularProgressIndicator(Modifier.align(Alignment.Center))
             else -> BookView(model, epub, page, onTap = { menu = !menu })
         }
 
+        // The menu follows the app's theme; a Surface gives its texts and icons the matching colour.
         AnimatedVisibility(menu, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.TopCenter)) {
-            Row(
-                Modifier.fillMaxWidth().background(colors.surfaceContainer).statusBarsPadding().padding(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") }
-                Column(Modifier.weight(1f)) {
-                    Text(model.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(model.chapterTitle, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Surface(color = colors.surfaceContainer, contentColor = colors.onSurface) {
+                Row(Modifier.fillMaxWidth().statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Retour") }
+                    Column(Modifier.weight(1f)) {
+                        Text(model.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(model.chapterTitle, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    IconButton(onClick = { toc = true }, enabled = epub?.toc?.isNotEmpty() == true) { Icon(Icons.AutoMirrored.Filled.List, "Table des matières") }
                 }
-                IconButton(onClick = { toc = true }, enabled = epub?.toc?.isNotEmpty() == true) { Icon(Icons.AutoMirrored.Filled.List, "Table des matières") }
             }
         }
         AnimatedVisibility(menu, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.align(Alignment.BottomCenter)) {
-            Column(Modifier.fillMaxWidth().background(colors.surfaceContainer).navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp)) {
-                Text("${(model.overall * 100).toInt()} % · partie ${model.index + 1} / ${model.count}", style = MaterialTheme.typography.labelMedium)
-                LinearProgressIndicator(progress = { model.overall }, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(onClick = { model.previous() }, enabled = model.index > 0) { Icon(Icons.Default.SkipPrevious, "Partie précédente") }
-                    FilterChip(model.paged, { model.setMode(true) }, { Text("Pages") })
-                    FilterChip(!model.paged, { model.setMode(false) }, { Text("Défilement") })
-                    Spacer(Modifier.weight(1f))
-                    IconButton(onClick = { model.changeTextSize(-1) }) { Icon(Icons.Default.TextDecrease, "Texte plus petit") }
-                    IconButton(onClick = { model.changeTextSize(1) }) { Icon(Icons.Default.TextIncrease, "Texte plus grand") }
-                    IconButton(onClick = { model.next() }, enabled = model.index < model.count - 1) { Icon(Icons.Default.SkipNext, "Partie suivante") }
+            Surface(color = colors.surfaceContainer, contentColor = colors.onSurface) {
+                Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp)) {
+                    // Parts and progress: always on their own row, so they fit any width.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { model.previous() }, enabled = model.index > 0) { Icon(Icons.Default.SkipPrevious, "Partie précédente") }
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                "${(model.overall * 100).toInt()} % · partie ${model.index + 1} / ${model.count}",
+                                style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                            LinearProgressIndicator(progress = { model.overall }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
+                        }
+                        IconButton(onClick = { model.next() }, enabled = model.index < model.count - 1) { Icon(Icons.Default.SkipNext, "Partie suivante") }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 4.dp)) {
+                        Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            FilterChip(model.paged, { model.setMode(true) }, { Text("Pages", maxLines = 1) })
+                            FilterChip(!model.paged, { model.setMode(false) }, { Text("Défilement", maxLines = 1) })
+                        }
+                        IconButton(onClick = { model.changeTextSize(-1) }) { Icon(Icons.Default.TextDecrease, "Texte plus petit") }
+                        IconButton(onClick = { model.changeTextSize(1) }) { Icon(Icons.Default.TextIncrease, "Texte plus grand") }
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        BookTheme.entries.forEach { t ->
+                            FilterChip(model.theme == t, { model.setTheme(t) }, { Text(t.label, maxLines = 1) })
+                        }
+                    }
                 }
             }
         }
@@ -143,9 +171,6 @@ fun BookReaderScreen(model: BookReaderModel, onBack: () -> Unit) {
     }
 }
 
-private data class Page(val background: String, val text: String, val link: String)
-
-private fun Color.css() = "#%06X".format(toArgb() and 0xFFFFFF)
 
 /**
  * The chapter in a WebView, its files served straight from the EPUB (nothing goes to the
@@ -154,7 +179,7 @@ private fun Color.css() = "#%06X".format(toArgb() and 0xFFFFFF)
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun BookView(model: BookReaderModel, epub: Epub, page: Page, onTap: () -> Unit) {
+private fun BookView(model: BookReaderModel, epub: Epub, page: PageColors, onTap: () -> Unit) {
     val bridge = remember(model) { Bridge(model) }
     bridge.onTap = onTap
     AndroidView(
@@ -257,7 +282,7 @@ private fun mime(path: String) = when (path.substringAfterLast('.').lowercase())
     else -> "application/octet-stream"
 }
 
-private fun css(model: BookReaderModel, page: Page): String {
+private fun css(model: BookReaderModel, page: PageColors): String {
     val common = """
         html, body { margin: 0 !important; padding: 0 !important; background: ${page.background} !important; }
         body { -webkit-text-size-adjust: 100%; }
