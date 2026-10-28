@@ -15,15 +15,26 @@ import java.text.Normalizer
  * unknown where the print one is); a file without ISBN is searched by title and author.
  */
 class BookLookup(private val http: Http) {
-    /** Null when nothing matches; thrown only when every catalogue failed (offline…). */
-    suspend fun find(isbns: List<String>, title: String, authors: List<String>, language: String?): BookInfo? {
+    /**
+     * Null when nothing matches; thrown only when every catalogue failed (offline…). The summary
+     * is the first in the book's language among the publisher's in the file ([fileSummary]), the
+     * BnF's and Open Library's (mostly English, kept only for a book in English).
+     */
+    suspend fun find(isbns: List<String>, title: String, authors: List<String>, language: String?, fileSummary: String?): BookInfo? {
         val calls = Calls()
         for (isbn in isbns) {
-            byIsbn(isbn, calls)?.let { info ->
-                return info.copy(isbns = (isbns + info.isbns).distinct(), language = info.language ?: language)
+            byIsbn(isbn, calls)?.let { (info, olSummary) ->
+                val lang = info.language ?: language
+                return info.copy(
+                    isbns = (isbns + info.isbns).distinct(),
+                    language = lang,
+                    description = Language.pick(lang, listOf(fileSummary, info.description, olSummary)),
+                )
             }
         }
-        byTitle(title, authors, language, calls)?.let { return it.copy(language = it.language ?: language) }
+        byTitle(title, authors, language, calls)?.let {
+            return it.copy(language = it.language ?: language, description = Language.pick(language, listOf(fileSummary)))
+        }
         if (!calls.answered) calls.failures.firstOrNull()?.let { throw it }
         return null
     }
@@ -34,7 +45,8 @@ class BookLookup(private val http: Http) {
         val failures = mutableListOf<Exception>()
     }
 
-    private suspend fun byIsbn(isbn: String, calls: Calls): BookInfo? {
+    /** The edition, and Open Library's summary of the work apart (its language is checked later). */
+    private suspend fun byIsbn(isbn: String, calls: Calls): Pair<BookInfo, String?>? {
         val openLibrary = attempt(calls) {
             BookInfo.fromOpenLibrary(http.get("https://openlibrary.org/api/books?bibkeys=ISBN:$isbn&format=json&jscmd=data"), isbn)
         }
@@ -43,10 +55,10 @@ class BookLookup(private val http: Http) {
             BookInfo.fromBnf(http.get("https://catalogue.bnf.fr/api/SRU?version=1.2&operation=searchRetrieve&query=$query&recordSchema=dublincore&maximumRecords=1"), isbn)
         }
         val summary = attempt(calls) { openLibrarySummary(isbn) }
-        // The BnF has the most accurate French data, Open Library the covers and summaries.
-        val info = (bnf ?: openLibrary ?: return null).or(openLibrary).let { if (it.description == null) it.copy(description = summary) else it }
+        // The BnF has the most accurate French data, Open Library the covers.
+        val info = (bnf ?: openLibrary ?: return null).or(openLibrary)
         val cover = openLibrary?.cover ?: openLibraryCover(isbn) ?: info.cover
-        return info.copy(cover = cover, isbns = (listOf(isbn) + info.isbns).distinct())
+        return info.copy(cover = cover, isbns = (listOf(isbn) + info.isbns).distinct()) to summary
     }
 
     private suspend fun byTitle(title: String, authors: List<String>, language: String?, calls: Calls): BookInfo? {

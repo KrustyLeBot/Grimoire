@@ -36,6 +36,7 @@ class EpubTest {
                 <dc:title>Le Petit Prince</dc:title>
                 <dc:creator>Antoine de Saint-Exupéry</dc:creator>
                 <dc:language>fr</dc:language>
+                <dc:description>&lt;p&gt;Un aviateur &lt;b&gt;perdu&lt;/b&gt;.&lt;/p&gt;</dc:description>
                 <dc:source>Édition papier ISBN 0-306-40615-2</dc:source>
               </metadata>
               <manifest>
@@ -56,6 +57,7 @@ class EpubTest {
             assertEquals("9782070612758", e.isbn)
             assertEquals(listOf("9782070612758", "9780306406157"), e.isbns)
             assertEquals("urn:uuid:1234", e.uniqueId)
+            assertEquals("Un aviateur perdu.", e.description)
             assertEquals(listOf("OEBPS/Text/chap 1.xhtml", "OEBPS/Text/chap2.xhtml"), e.spine)
             assertEquals(listOf("Chapitre I", "Chapitre II"), e.toc.map { it.title })
             assertEquals("s", e.toc[1].fragment)

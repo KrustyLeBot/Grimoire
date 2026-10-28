@@ -83,6 +83,8 @@ data class BookInfo(
                 published = all("dc:date").firstOrNull(),
                 pages = all("dc:format").firstNotNullOfOrNull { Regex("""(\d+)\s*p\.""").find(it)?.groupValues?.get(1)?.toIntOrNull() },
                 language = all("dc:language").firstOrNull()?.let(::iso639),
+                // Notes ("Bibliogr.", "Index") are short; a summary is a paragraph.
+                description = all("dc:description").filter { it.length >= 150 }.maxByOrNull { it.length },
                 isbns = (listOf(isbn) + all("dc:identifier").flatMap { Isbn.all(it) }).distinct(),
             )
         }

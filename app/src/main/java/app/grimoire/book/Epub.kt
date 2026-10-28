@@ -23,6 +23,8 @@ class Epub(file: File) : Closeable {
     val title: String
     val authors: List<String>
     val language: String?
+    /** The publisher's summary (`dc:description`), as plain text. */
+    val description: String?
     /**
      * Every ISBN the file carries, as ISBN-13: the ones declared as such first, then any other
      * identifier holding one, then `dc:source` (often the print edition's).
@@ -48,6 +50,8 @@ class Epub(file: File) : Closeable {
         title = meta("title").firstOrNull()?.text()?.trim()?.takeIf { it.isNotEmpty() } ?: file.nameWithoutExtension
         authors = meta("creator").map { it.text().trim() }.filter { it.isNotEmpty() }
         language = meta("language").firstOrNull()?.text()?.trim()
+        // Often HTML escaped inside the XML: parsed again to keep only the text.
+        description = meta("description").firstOrNull()?.text()?.let { Jsoup.parse(it).text().trim() }?.ifEmpty { null }
         val identifiers = meta("identifier")
         val declared = identifiers.filter { id ->
             id.attributes().any { it.key.substringAfter(':') == "scheme" && it.value.equals("isbn", true) } || "isbn" in id.text().lowercase()

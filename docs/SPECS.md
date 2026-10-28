@@ -152,7 +152,9 @@ nothing and fails. The app updates itself from that release (suite kit).
   or edition has its own ISBN, hence its own progress.
 - **Description**: looked up online, not taken from the file, without account or key: the BnF
   catalogue (SRU, Dublin Core) and Open Library (data, covers, the work's summary) by ISBN, each
-  ISBN of the file in turn; without ISBN, an Open Library search by title and author. Cached per phone (`book-info/<id>.json`); the title, cover
+  ISBN of the file in turn; without ISBN, an Open Library search by title and author. The summary
+  is the first one in the book's language (guessed from common words) among the publisher's in the
+  EPUB, the BnF's and Open Library's (mostly English). Cached per phone (`book-info-2/<id>.json`); the title, cover
   URL and the edition's ISBNs go to `library.json` so every phone shows them. The EPUB's own cover
   is only a fallback on the phone that has the file.
 - **Progress**: in `progress.json` under `files:<id>`: `last.chapter` = spine index, `last.page` =

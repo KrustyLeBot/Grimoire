@@ -60,6 +60,9 @@ data class SeriesView(val details: SeriesDetails? = null, val loading: Boolean =
 private const val LIBRARY_CHECK_MS = 6 * 3_600_000L
 private const val LOOKING = "…"
 
+/** What the lookup takes from the file: what to search with, and the publisher's summary. */
+private data class FileMeta(val title: String, val authors: List<String>, val language: String?, val description: String?)
+
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     val app = application as GrimoireApp
     val store = app.store
@@ -300,9 +303,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             bookLookup[id] = try {
                 val item = data.value.library.firstOrNull { it.key == key }
                 val file = app.books.file(id)
-                val meta = if (file.exists()) withContext(Dispatchers.IO) { Epub(file).use { Triple(it.title, it.authors, it.language) } } else null
+                val meta = if (file.exists()) withContext(Dispatchers.IO) { Epub(file).use { FileMeta(it.title, it.authors, it.language, it.description) } } else null
                 val isbns = (listOfNotNull(Books.isbnOf(id)) + item?.isbns.orEmpty()).distinct()
-                val info = app.lookup.find(isbns, meta?.first ?: item?.title.orEmpty(), meta?.second.orEmpty(), meta?.third)
+                val info = app.lookup.find(isbns, meta?.title ?: item?.title.orEmpty(), meta?.authors.orEmpty(), meta?.language, meta?.description)
                 if (info == null) {
                     "Livre inconnu des catalogues en ligne"
                 } else {

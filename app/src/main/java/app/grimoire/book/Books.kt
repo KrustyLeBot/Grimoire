@@ -34,7 +34,7 @@ data class Imported(
  */
 class Books(private val context: Context, private val http: Http) {
     private val dir: File get() = File(context.getExternalFilesDir(null) ?: context.filesDir, "books").also { it.mkdirs() }
-    private val infoDir: File get() = File(context.filesDir, "book-info").also { it.mkdirs() }
+    private val infoDir: File get() = File(context.filesDir, "book-info-2").also { it.mkdirs() }
 
     private val _present = MutableStateFlow(scan())
     /** Ids of the books whose file is on this phone. */
