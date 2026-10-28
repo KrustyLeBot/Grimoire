@@ -276,10 +276,9 @@ private fun css(model: BookReaderModel, page: Page): String {
     """
     val layout = if (model.paged) """
         html, body { height: 100% !important; overflow: hidden !important; }
-        #g-flow { position: absolute !important; top: 0; left: 0; width: 100vw !important; height: 100vh !important;
-                  margin: 0 !important; padding: 32px 24px !important; column-width: calc(100vw - 48px); column-gap: 48px;
-                  column-fill: auto; }
-        #g-flow img, #g-flow svg { max-height: calc(100vh - 72px) !important; object-fit: contain; break-inside: avoid; }
+        #g-flow { position: absolute !important; top: 0; left: 0; margin: 0 !important; padding: 32px 24px !important;
+                  column-gap: 48px; column-fill: auto; overflow: hidden !important; }
+        #g-flow img, #g-flow svg { object-fit: contain; break-inside: avoid; }
     """ else """
         #g-flow { padding: 24px 20px 8px !important; }
         #g-next { display: block; margin: 24px auto 64px; font: inherit; font-size: 16px; padding: 10px 22px;
@@ -300,21 +299,42 @@ private fun script(model: BookReaderModel, path: String, epub: Epub): String {
   var c = $config;
   var flow = document.getElementById('g-flow'), end = document.getElementById('g-end');
   var se = document.scrollingElement || document.documentElement;
-  var page = 0, fraction = c.start, shown = false;
-  function W() { return window.innerWidth; }
-  function count() {
-    var x = end.getBoundingClientRect().left - flow.getBoundingClientRect().left;
-    return Math.max(1, Math.floor((x + 1) / W()) + 1);
+  var page = 0, fraction = c.start, shown = false, width = 0, height = 0;
+  // Pages: the flow gets the window's size in pixels (measured, not 100vh, which a WebView can
+  // read as 0 before its first layout) and is split into one column per screen; turning a page
+  // scrolls it by one screen width.
+  function layout() {
+    width = window.innerWidth; height = window.innerHeight;
+    if (!c.paged || width <= 0 || height <= 0) return;
+    flow.style.width = width + 'px';
+    flow.style.height = height + 'px';
+    flow.style.columnWidth = (width - 48) + 'px';
+    var media = flow.querySelectorAll('img, svg, video');
+    for (var i = 0; i < media.length; i++) {
+      media[i].style.maxHeight = (height - 72) + 'px';
+      // A cover's wrapper is often height: 100%, which spills it onto an empty second page.
+      for (var e = media[i].parentNode; e && e !== flow && e.nodeType === 1; e = e.parentNode) {
+        if (e.textContent.replace(/\s/g, '') !== '') break;
+        e.style.setProperty('height', 'auto', 'important');
+      }
+    }
   }
-  function show(p) { page = p; flow.style.transform = 'translateX(' + (-p * W()) + 'px)'; }
+  function count() {
+    if (width <= 0) return 1;
+    var x = end.getBoundingClientRect().left - flow.getBoundingClientRect().left + flow.scrollLeft;
+    var n = Math.floor((x + 1) / width) + 1;
+    return isFinite(n) && n > 0 ? n : 1;
+  }
+  function show(p) { page = p; flow.scrollLeft = p * width; }
   function report() {
     if (c.paged) { var n = count(); fraction = n > 1 ? page / (n - 1) : 1; }
     else { var max = se.scrollHeight - window.innerHeight; fraction = max > 0 ? se.scrollTop / max : 1; }
-    Grimoire.position(fraction);
+    if (isFinite(fraction)) Grimoire.position(fraction);
   }
   function go(f) {
     try {
-      if (c.paged) { var n = count(); show(Math.round(f * (n - 1))); }
+      layout();
+      if (c.paged) { var n = count(); show(Math.max(0, Math.min(n - 1, Math.round(f * (n - 1))))); }
       else { se.scrollTop = f * (se.scrollHeight - window.innerHeight); }
       report();
     } finally {
@@ -344,7 +364,7 @@ private fun script(model: BookReaderModel, path: String, epub: Epub): String {
   document.addEventListener('click', function (e) {
     var t = e.target;
     if (t && t.closest && t.closest('a[href], button')) return;
-    Grimoire.tap(e.clientX / W());
+    Grimoire.tap(e.clientX / window.innerWidth);
   });
   if (c.paged) {
     var x0 = null, y0 = 0;
@@ -355,10 +375,17 @@ private fun script(model: BookReaderModel, path: String, epub: Epub): String {
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) window.grimoire.turn(dx < 0 ? 1 : -1);
     }, { passive: true });
   }
-  window.addEventListener('resize', function () { go(fraction); });
-  function ready() { setTimeout(function () { go(c.start); }, 30); }
+  window.addEventListener('resize', function () {
+    if (window.innerWidth !== width || window.innerHeight !== height) go(isFinite(fraction) ? fraction : 0);
+  });
+  // Waits for the WebView to have a size, and for images and fonts to be laid out.
+  var tries = 0;
+  function ready() {
+    if ((window.innerWidth <= 0 || window.innerHeight <= 0) && tries++ < 100) { setTimeout(ready, 20); return; }
+    setTimeout(function () { go(c.start); }, 30);
+  }
   if (document.readyState === 'complete') ready(); else window.addEventListener('load', ready);
-  setTimeout(function () { if (!shown) go(c.start); }, 1500);
+  setTimeout(function () { if (!shown) go(c.start); }, 2500);
 })();
 """
 }
