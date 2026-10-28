@@ -1,6 +1,8 @@
 package app.grimoire
 
 import android.app.Application
+import app.grimoire.book.BookLookup
+import app.grimoire.book.Books
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -31,6 +33,8 @@ class GrimoireApp : Application(), SingletonImageLoader.Factory {
     val sources by lazy { Sources(store, http) }
     val updater by lazy { SuiteUpdater(this, "KrustyLeBot/Grimoire", "$packageName.fileprovider") }
     val settings by lazy { Settings(this) }
+    val books by lazy { Books(this, http) }
+    val lookup by lazy { BookLookup(http) }
 
     /** Work that outlives a screen (marking a chapter read when leaving the reader, say). */
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)

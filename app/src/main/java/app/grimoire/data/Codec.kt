@@ -31,6 +31,7 @@ object Codec {
         JSONArray(list.map { i ->
             JSONObject().put("source", i.source).put("slug", i.slug).put("title", i.title).put("cover", i.cover)
                 .put("kind", i.kind.raw).put("added", i.added)
+                .apply { if (i.isbns.isNotEmpty()) put("isbns", JSONArray(i.isbns)) }
         }),
     ).toString(2)
 
@@ -38,6 +39,7 @@ object Codec {
         LibraryItem(
             source = o.getString("source"), slug = o.getString("slug"), title = o.optString("title"),
             cover = o.optString("cover").ifBlank { null }, kind = Kind.of(o.optString("kind")), added = o.optLong("added"),
+            isbns = o.optJSONArray("isbns")?.let { a -> List(a.length()) { a.getString(it) } }.orEmpty(),
         )
     }
 

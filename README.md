@@ -18,6 +18,11 @@ same self-update, same Proton Drive sync through Synchrotron.
   page, marks a chapter read when its last page is reached. Text sources get a text reader.
 - Manual marking: one chapter, a selection, everything up to a chapter, or the whole series.
 - Offline downloads (Wi-Fi only by default), stored in the app's private storage: never synced.
+- **Books (EPUB)**: open an EPUB from a file manager, a browser download or a shared link, or
+  with « + ». The book is identified by its ISBN; title, authors, summary, language and cover
+  come from Google Books / Open Library rather than from the file. Reader in pages or scroll,
+  table of contents, text size; position and "read" are synced, the file is not: another phone
+  shows the book with its ISBN until its EPUB is opened there too.
 
 ## Data
 
@@ -27,13 +32,14 @@ same self-update, same Proton Drive sync through Synchrotron.
 |---|---|
 | `sources.json` | configured sources (type, name, address, options) |
 | `library.json` | series in the library |
-| `progress.json` | per series: chapters read, last position, reader mode |
+| `progress.json` | per series or book: chapters read, last position, reader mode |
 | `.syncignore` | created by the app; keeps temporary files out of the sync |
 
 Every write is atomic; an unreadable file is reported and never overwritten. While Synchrotron
 syncs (on each opening), changes wait in memory and are applied on top of what it brought.
 
-Private (never synced): series cache, downloaded chapters, image cache, site cookies.
+Private (never synced): series cache, downloaded chapters, EPUB files and their online
+descriptions, image cache, site cookies.
 
 ## Sources
 

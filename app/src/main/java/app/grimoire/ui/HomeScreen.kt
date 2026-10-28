@@ -6,6 +6,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +29,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -67,6 +70,7 @@ import app.grimoire.Feed
 import app.grimoire.Lister
 import app.grimoire.MainViewModel
 import app.grimoire.Screen
+import app.grimoire.book.Books
 import app.grimoire.Tab as HomeTab
 import app.grimoire.data.seriesKey
 import app.grimoire.suite.SuiteBanner
@@ -78,9 +82,13 @@ import app.grimoire.suite.UpdateBanner
 fun HomeScreen(vm: MainViewModel) {
     val online by vm.app.online.collectAsState()
     val storeError by vm.store.error.collectAsState()
+    val pickBook = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(vm::importBook) }
     Scaffold(
         topBar = {
             SuiteTopBar("Grimoire") {
+                IconButton(onClick = { pickBook.launch(arrayOf("application/epub+zip", "application/octet-stream")) }) {
+                    Icon(Icons.Default.Add, "Ajouter un livre (EPUB)")
+                }
                 IconButton(onClick = { vm.open(Screen.Settings) }) { Icon(Icons.Default.Settings, "Paramètres") }
             }
         },
@@ -126,6 +134,7 @@ private fun Banners(vm: MainViewModel, online: Boolean, storeError: String?) {
     }
     if (!online) SuiteBanner("Seuls les chapitres téléchargés sont lisibles.", title = "Hors ligne", icon = Icons.Default.CloudOff)
     if (vm.syncing) SuiteBanner("Tes lectures se synchronisent ; ce que tu lis entre-temps est gardé.", title = "Synchronisation avec Proton Drive", icon = Icons.Default.Sync, progress = -1f)
+    if (vm.importing) SuiteBanner("Import du livre…", progress = -1f)
     vm.notice?.let { SuiteBanner(it) }
 }
 
@@ -135,6 +144,7 @@ private enum class LibraryFilter(val label: String) { READING("En cours"), ALL("
 private fun LibraryTab(vm: MainViewModel, online: Boolean) {
     val data by vm.data.collectAsState()
     val done by vm.app.downloads.done.collectAsState()
+    val books by vm.app.books.present.collectAsState()
     var filter by rememberSaveable { mutableStateOf(LibraryFilter.READING) }
     // Reading the series map makes the counts follow refreshes.
     vm.series.size
@@ -163,7 +173,7 @@ private fun LibraryTab(vm: MainViewModel, online: Boolean) {
         }
         if (items.isEmpty()) {
             Empty(
-                if (data.library.isEmpty()) "Ta bibliothèque est vide.\nTrouve une série dans Découvrir ou Recherche : elle arrive ici dès que tu la lis."
+                if (data.library.isEmpty()) "Ta bibliothèque est vide.\nTrouve une série dans Découvrir ou Recherche : elle arrive ici dès que tu la lis.\nPour un livre, ouvre un fichier EPUB avec Grimoire ou touche +."
                 else "Rien dans « ${filter.label} ».",
             )
             return
@@ -175,15 +185,30 @@ private fun LibraryTab(vm: MainViewModel, online: Boolean) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             items(items, key = { it.first.key }) { (item, unread) ->
-                val last = data.progress[item.key]?.last
-                val offline = done.any { it.startsWith(seriesKey(item.source, item.slug.replace('/', '_')) + ":") }
-                SeriesCell(
-                    title = item.title, cover = item.cover, source = item.source,
-                    badge = unread.takeIf { it > 0 }?.toString(),
-                    subtitle = last?.chapterName ?: if (unread == 0 && data.progress[item.key]?.read.orEmpty().isNotEmpty()) "Tout lu" else "Pas commencé",
-                    enabled = online || offline,
-                    onClick = { vm.open(Screen.Series(item.source, item.slug, item.title, item.cover)) },
-                )
+                val progress = data.progress[item.key]
+                val last = progress?.last
+                if (item.source == Books.SOURCE) {
+                    val read = Books.READ in progress?.read.orEmpty()
+                    val state = when {
+                        read -> "Lu"
+                        last != null -> "${Books.percent(last)} %"
+                        else -> "Pas commencé"
+                    }
+                    SeriesCell(
+                        title = item.title, cover = item.cover ?: vm.app.books.localCover(item.slug), source = item.source,
+                        subtitle = if (item.slug in books) state else "$state · fichier absent",
+                        onClick = { vm.open(Screen.Book(item.slug)) },
+                    )
+                } else {
+                    val offline = done.any { it.startsWith(seriesKey(item.source, item.slug.replace('/', '_')) + ":") }
+                    SeriesCell(
+                        title = item.title, cover = item.cover, source = item.source,
+                        badge = unread.takeIf { it > 0 }?.toString(),
+                        subtitle = last?.chapterName ?: if (unread == 0 && progress?.read.orEmpty().isNotEmpty()) "Tout lu" else "Pas commencé",
+                        enabled = online || offline,
+                        onClick = { vm.open(Screen.Series(item.source, item.slug, item.title, item.cover)) },
+                    )
+                }
             }
         }
     }

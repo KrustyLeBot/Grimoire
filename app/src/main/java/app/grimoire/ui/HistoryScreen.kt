@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import app.grimoire.MainViewModel
 import app.grimoire.Screen
+import app.grimoire.book.Books
 import app.grimoire.data.seriesKey
 import app.grimoire.suite.SuiteTopBar
 
@@ -33,9 +34,10 @@ fun HistoryScreen(vm: MainViewModel) {
 private fun History(vm: MainViewModel, online: Boolean) {
     val data by vm.data.collectAsState()
     val done by vm.app.downloads.done.collectAsState()
+    val books by vm.app.books.present.collectAsState()
     val entries = data.progress.mapNotNull { (key, p) -> p.last?.let { key to it } }.sortedByDescending { it.second.at }
     if (entries.isEmpty()) {
-        Empty("Les chapitres que tu lis apparaîtront ici.")
+        Empty("Les chapitres et livres que tu lis apparaîtront ici.")
         return
     }
     LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
@@ -50,14 +52,26 @@ private fun History(vm: MainViewModel, online: Boolean) {
             val slug = key.substringAfter(':')
             val item = data.library.firstOrNull { it.key == key }
             val title = item?.title ?: vm.app.cache.load(source, slug)?.title ?: slug
-            val cover = item?.cover
-            val available = online || "${seriesKey(source, slug.replace('/', '_'))}:${last.chapter}" in done
+            val book = source == Books.SOURCE
+            val cover = item?.cover ?: if (book) vm.app.books.localCover(slug) else null
+            val available = if (book) true else online || "${seriesKey(source, slug.replace('/', '_'))}:${last.chapter}" in done
             item(key = key) {
                 ListItem(
                     headlineContent = { Text(title, maxLines = 1) },
-                    supportingContent = { Text("${last.chapterName} · page ${last.page + 1}${if (last.pages > 0) " / ${last.pages}" else ""}") },
+                    supportingContent = {
+                        Text(
+                            if (book) "${last.chapterName} · ${Books.percent(last)} %"
+                            else "${last.chapterName} · page ${last.page + 1}${if (last.pages > 0) " / ${last.pages}" else ""}",
+                        )
+                    },
                     leadingContent = { Cover(cover, source, Modifier.size(48.dp, 64.dp)) },
-                    modifier = if (available) Modifier.tappable { vm.open(Screen.Reader(source, slug, last.chapter)) } else Modifier.alpha(0.38f),
+                    modifier = if (!available) Modifier.alpha(0.38f) else Modifier.tappable {
+                        when {
+                            !book -> vm.open(Screen.Reader(source, slug, last.chapter))
+                            slug in books -> vm.open(Screen.BookReader(slug))
+                            else -> vm.open(Screen.Book(slug))
+                        }
+                    },
                 )
             }
         }

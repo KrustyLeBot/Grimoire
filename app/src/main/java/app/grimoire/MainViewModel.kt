@@ -7,11 +7,17 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import android.net.Uri
+import app.grimoire.book.BookInfo
+import app.grimoire.book.Books
+import app.grimoire.book.Epub
+import app.grimoire.book.Imported
 import app.grimoire.data.LibraryItem
 import app.grimoire.data.Ops
 import app.grimoire.data.SeriesProgress
 import app.grimoire.data.seriesKey
 import app.grimoire.source.Catalog
+import app.grimoire.source.Kind
 import app.grimoire.source.ChapterInfo
 import app.grimoire.source.SeriesDetails
 import app.grimoire.source.SourceConfig
@@ -24,6 +30,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 sealed interface Screen {
     data object Home : Screen
@@ -34,6 +42,8 @@ sealed interface Screen {
     data class Login(val source: String) : Screen
     data object Settings : Screen
     data object History : Screen
+    data class Book(val id: String) : Screen
+    data class BookReader(val id: String) : Screen
 }
 
 /** The "Lecture" section's tabs. Other sections (Reddit…) will sit next to it. */
@@ -46,6 +56,7 @@ data class SeriesView(val details: SeriesDetails? = null, val loading: Boolean =
 
 
 private const val LIBRARY_CHECK_MS = 6 * 3_600_000L
+private const val LOOKING = "…"
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     val app = application as GrimoireApp
@@ -147,6 +158,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun unread(item: LibraryItem): Int {
         val read = progress(item.key).read
+        if (item.source == Books.SOURCE) return if (Books.READ in read) 0 else 1
         return cachedChapters(item.source, item.slug).count { !it.locked && it.id !in read }
     }
 
@@ -171,7 +183,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshing = true
         viewModelScope.launch {
             try {
-                data.value.library.sortedByDescending { progress(it.key).last?.at ?: it.added }.forEach { item ->
+                data.value.library.filter { it.source != Books.SOURCE }.sortedByDescending { progress(it.key).last?.at ?: it.added }.forEach { item ->
                     loadSeries(item.source, item.slug, force = true).join()
                 }
                 app.settings.libraryCheckedAt = System.currentTimeMillis()
@@ -235,6 +247,80 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun read(source: String, details: SeriesDetails, chapter: ChapterInfo) {
         store.update(op = Ops.addToLibrary(source, details))
         open(Screen.Reader(source, details.slug, chapter.id))
+    }
+
+    // ---- books (EPUB files) ----
+
+    var importing by mutableStateOf(false)
+        private set
+
+    /** The library book sharing one of these ISBNs: the same edition, whatever file it came in. */
+    private fun knownBook(isbns: List<String>): String? = data.value.library.firstOrNull { item ->
+        item.source == Books.SOURCE && (Books.isbnOf(item.slug) in isbns || item.isbns.any { it in isbns })
+    }?.slug
+
+    fun importBook(uri: Uri) = addBook { app.books.import(uri, ::knownBook) }
+
+    fun downloadBook(url: String) = addBook { app.books.download(url, ::knownBook) }
+
+    private fun addBook(load: suspend () -> Imported) {
+        importing = true
+        viewModelScope.launch {
+            try {
+                val b = load()
+                store.update(op = Ops.addBook(LibraryItem(Books.SOURCE, b.id, b.title, null, Kind.NOVEL, System.currentTimeMillis(), b.isbns)))
+                show(if (b.replaced) "Fichier de « ${b.title} » remplacé" else "« ${b.title} » ajouté à la bibliothèque")
+                open(Screen.Book(b.id))
+                describeBook(b.id, force = true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                show("Import impossible : ${describe(e)}")
+            } finally {
+                importing = false
+            }
+        }
+    }
+
+    /** Online description of each book, from the cache or looked up by ISBN. */
+    val bookInfo = mutableStateMapOf<String, BookInfo>()
+    val bookLookup = mutableStateMapOf<String, String>()
+
+    fun bookInfo(id: String): BookInfo? = bookInfo[id] ?: app.books.info(id)?.also { bookInfo[id] = it }
+
+    fun describeBook(id: String, force: Boolean = false) {
+        if ((!force && bookInfo(id) != null) || bookLookup[id] == LOOKING || !app.online.value) return
+        val key = seriesKey(Books.SOURCE, id)
+        bookLookup[id] = LOOKING
+        viewModelScope.launch {
+            bookLookup[id] = try {
+                val item = data.value.library.firstOrNull { it.key == key }
+                val file = app.books.file(id)
+                val meta = if (file.exists()) withContext(Dispatchers.IO) { Epub(file).use { Triple(it.title, it.authors, it.language) } } else null
+                val isbns = (listOfNotNull(Books.isbnOf(id)) + item?.isbns.orEmpty()).distinct()
+                val info = app.lookup.find(isbns, meta?.first ?: item?.title.orEmpty(), meta?.second.orEmpty(), meta?.third)
+                if (info == null) {
+                    "Livre inconnu des catalogues en ligne"
+                } else {
+                    app.books.saveInfo(id, info)
+                    bookInfo[id] = info
+                    store.update(op = Ops.describeBook(key, info.title, info.cover, info.isbns))
+                    ""
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                "Infos en ligne indisponibles : ${describe(e)}"
+            }
+        }
+    }
+
+    fun deleteBookFile(id: String) = app.books.delete(id)
+
+    fun removeBook(id: String) {
+        removeFromLibrary(seriesKey(Books.SOURCE, id))
+        app.books.delete(id)
+        back()
     }
 
     // ---- discover & search ----

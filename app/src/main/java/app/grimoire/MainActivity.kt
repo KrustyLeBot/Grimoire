@@ -1,6 +1,12 @@
 package app.grimoire
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import androidx.core.content.IntentCompat
+import app.grimoire.book.BookReaderModel
+import app.grimoire.book.BookReaderScreen
+import app.grimoire.ui.BookScreen
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -41,6 +47,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (Build.VERSION.SDK_INT >= 33) askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (savedInstanceState == null) receive(intent)
         setContent {
             GrimoireTheme {
                 BackHandler(enabled = vm.stack.size > 1) { vm.back() }
@@ -53,6 +60,11 @@ class MainActivity : ComponentActivity() {
                     is Screen.Login -> LoginScreen(vm, s.source)
                     Screen.Settings -> SettingsScreen(vm)
                     Screen.History -> HistoryScreen(vm)
+                    is Screen.Book -> BookScreen(vm, s.id)
+                    is Screen.BookReader -> {
+                        val model = remember(s.id) { BookReaderModel(vm.app, s.id, vm.app.scope) }
+                        BookReaderScreen(model, onBack = { vm.back() })
+                    }
                 }
             }
         }
@@ -81,6 +93,29 @@ class MainActivity : ComponentActivity() {
         }
         val model = remember(key, s.chapter) { ReaderModel(vm.app, vm.app.scope, s.source, details, s.chapter) }
         ReaderScreen(model, onBack = { vm.back() })
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        receive(intent)
+    }
+
+    /** An EPUB opened or shared from another app (files, browser downloads), or a link to one. */
+    private fun receive(intent: Intent?) {
+        when (intent?.action) {
+            Intent.ACTION_VIEW -> intent.data?.let { uri ->
+                if (uri.scheme == "http" || uri.scheme == "https") vm.downloadBook(uri.toString()) else vm.importBook(uri)
+            }
+            Intent.ACTION_SEND -> {
+                val stream = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+                val link = intent.getStringExtra(Intent.EXTRA_TEXT)?.let { Regex("""https?://\S+""").find(it)?.value }
+                when {
+                    stream != null -> vm.importBook(stream)
+                    link != null -> vm.downloadBook(link)
+                    else -> vm.show("Partage un fichier EPUB, ou un lien vers un .epub")
+                }
+            }
+        }
     }
 
     override fun onStart() {

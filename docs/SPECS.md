@@ -30,6 +30,7 @@ the app and stored in a synced file. A new source type comes with an app update.
 | History | In Paramètres. Last chapters read, grouped by day; tap to resume at the saved page. |
 | Reader | Image chapters: "Défilement" (vertical, webtoons) or "Pages" (horizontal, manga, optional right-to-left). Pinch zoom, tap the middle for the menu (chapter, page slider, mode), next/previous chapter. Position saved per chapter. Text chapters: paragraphs with a font size setting. Default mode per series: guessed from the source (webtoon → défilement), changeable and remembered. |
 | Downloads | Per chapter, "à partir d'ici", or the whole series. Background job with a notification; Wi-Fi only option. Stored in the app's private storage, never synced. |
+| Books (EPUB) | See §8. |
 | Offline | No separate tab: the library shows everything, and what cannot be read offline (series or chapters without a download) is greyed out and not tappable. Series pages and chapter lists open from the last saved copy. |
 | Sync | The synced folder holds the configuration and the reading state. On open the app asks Synchrotron for a sync, is read-only while it runs (writes wait and are applied after), and re-reads the files. No sync setup inside the app. |
 | Updates, settings | The suite kit: quiet update check on open, banner with download and install, Settings with Synchronisation / Mise à jour / À propos sections. |
@@ -138,3 +139,27 @@ from the `release` environment (`GRIMOIRE_KEYSTORE_BASE64`, `GRIMOIRE_KEYSTORE_P
 `GRIMOIRE_KEY_PASSWORD`, alias `grimoire`), runs the unit tests, and publishes the rolling `latest`
 release ("Grimoire build N", `grimoire.apk`). Without the key it compiles and tests but publishes
 nothing and fails. The app updates itself from that release (suite kit).
+
+## 8. Books from EPUB files
+
+- **Getting a file in**: "Ouvrir avec Grimoire" on an EPUB (file manager, browser download), an
+  EPUB or a link to one shared to Grimoire, an https link ending in `.epub`, or « + » on the home
+  screen. The file is copied to private storage (`books/<id>.epub`), never synced.
+- **Identity**: the book id is `isbn-<ISBN-13>` from the file's identifiers (declared ISBNs, other
+  identifiers holding one, then `dc:source`, often the print edition); ISBN-10s are converted.
+  Without ISBN: `id-<hash of the package identifier>`. On import, a library book sharing any ISBN
+  with the file gets the file (same edition in another file, or on another phone). Each language
+  or edition has its own ISBN, hence its own progress.
+- **Description**: looked up online, not taken from the file: Google Books by ISBN (each ISBN of
+  the file in turn), Open Library to fill gaps and for larger covers; without ISBN, a Google Books
+  search by title, author and language. Cached per phone (`book-info/<id>.json`); the title, cover
+  URL and the edition's ISBNs go to `library.json` so every phone shows them. The EPUB's own cover
+  is only a fallback on the phone that has the file.
+- **Progress**: in `progress.json` under `files:<id>`: `last.chapter` = spine index, `last.page` =
+  position in it in thousandths, `last.pages` = spine length; `read` holds `book` once finished
+  (automatically at the end, or by hand).
+- **Missing file**: a book in the library whose file is not on this phone shows "fichier absent",
+  its ISBN(s) to copy, and "Choisir le fichier".
+- **Reader**: WebView fed from the zip (no network), theme colours and text size forced, "Pages"
+  (CSS columns, swipe or side taps) or "Défilement", table of contents, previous/next part.
+

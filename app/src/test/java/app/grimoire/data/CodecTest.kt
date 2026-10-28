@@ -18,6 +18,7 @@ class CodecTest {
         val list = listOf(
             LibraryItem("p", "solo", "Solo", "https://x/c.webp", Kind.MANGA, 1000),
             LibraryItem("p", "tower", "Tower", null, Kind.WEBTOON, 2000),
+            LibraryItem("files", "isbn-9782070612758", "Le Petit Prince", null, Kind.NOVEL, 3000, listOf("9782070612758", "9780306406157")),
         )
         assertEquals(list, Codec.library(Codec.library(list)))
     }

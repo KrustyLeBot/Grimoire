@@ -148,7 +148,7 @@ fun ReaderScreen(model: ReaderModel, onBack: () -> Unit) {
 
 /** Hides the system bars while reading, and keeps the screen on if asked. */
 @Composable
-private fun Immersive(hidden: Boolean, keepOn: Boolean) {
+internal fun Immersive(hidden: Boolean, keepOn: Boolean) {
     val view = LocalView.current
     val window = (view.context as? Activity)?.window
     DisposableEffect(hidden) {

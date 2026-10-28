@@ -12,6 +12,24 @@ object Ops {
         else d.copy(library = d.library + LibraryItem(source, details.slug, details.title, details.cover, details.kind, now))
     }
 
+    /** A book from a file; an existing entry gets the ISBNs it lacked. */
+    fun addBook(item: LibraryItem): (AppData) -> AppData = { d ->
+        val existing = d.library.firstOrNull { it.key == item.key }
+        if (existing == null) d.copy(library = d.library + item)
+        else d.copy(library = d.library.map { if (it.key == item.key) it.copy(isbns = (it.isbns + item.isbns).distinct()) else it })
+    }
+
+    /** What the online lookup found: title and cover shown on every phone. */
+    fun describeBook(key: String, title: String, cover: String?, isbns: List<String>): (AppData) -> AppData = { d ->
+        d.copy(library = d.library.map {
+            if (it.key == key) it.copy(title = title, cover = cover ?: it.cover, isbns = (it.isbns + isbns).distinct()) else it
+        })
+    }
+
+    fun bookPosition(key: String, index: Int, title: String, permille: Int, count: Int, now: Long = System.currentTimeMillis()): (AppData) -> AppData = { d ->
+        d.withProgress(key) { it.copy(last = LastRead(index.toString(), title, permille, count, now)) }
+    }
+
     fun removeFromLibrary(key: String): (AppData) -> AppData = { d -> d.copy(library = d.library.filterNot { it.key == key }) }
 
     private fun AppData.withProgress(key: String, change: (SeriesProgress) -> SeriesProgress) =
