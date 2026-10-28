@@ -25,7 +25,8 @@ uninstalling the app to install a build signed with a new key.
 ## CI
 
 `.github/workflows/build-apk.yml`: unit tests, `assembleRelease` signed with the key above, the
-Windows exe (pytest, then PyInstaller `--onefile`, stamped with the same build number), then the
+Windows exe (pytest, then PyInstaller with `windows/grimoire.spec`: one file, only the parts of Qt
+the app uses, stamped with the same build number), then the
 rolling `latest` release with both files (deleted and recreated, title `Grimoire build N`,
 N = run number = versionCode). On `main` a missing key fails the build; pull requests never see the
 key and never publish.

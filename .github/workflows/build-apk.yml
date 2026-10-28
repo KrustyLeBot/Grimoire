@@ -96,15 +96,11 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: python -m pytest tests -q
       - name: Build the exe
-        run: >
-          pyinstaller --noconfirm --onefile --windowed --name Grimoire
-          --icon grimoire_win/assets/icon.ico
-          --add-data "grimoire_win/assets;grimoire_win/assets"
-          --exclude-module PySide6.Qt3DCore --exclude-module PySide6.Qt3DRender --exclude-module PySide6.QtQuick3D
-          --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtCharts --exclude-module PySide6.QtDataVisualization
-          --exclude-module PySide6.QtGraphs --exclude-module PySide6.QtBluetooth --exclude-module PySide6.QtSensors
-          --exclude-module tkinter
-          run.py
+        # grimoire.spec keeps only the parts of Qt the app uses (see its comments).
+        run: pyinstaller --noconfirm grimoire.spec
+      - name: Size of the exe
+        shell: bash
+        run: ls -l dist/Grimoire.exe | awk '{ printf "Grimoire.exe: %.1f Mo\n", $5 / 1000000 }'
       - uses: actions/upload-artifact@v4
         with:
           name: grimoire-windows
