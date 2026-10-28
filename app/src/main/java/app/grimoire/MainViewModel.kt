@@ -274,7 +274,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun saveSource(config: SourceConfig) {
         store.update(op = Ops.saveSource(config))
-        browse.remove(config.id)
+        // A new address or option: lists made with the old one are reloaded.
+        discover.clear()
+        if (query.isNotBlank()) search()
     }
 
     fun removeSource(id: String) {
