@@ -149,8 +149,8 @@ private fun Color.css() = "#%06X".format(toArgb() and 0xFFFFFF)
 
 /**
  * The chapter in a WebView, its files served straight from the EPUB (nothing goes to the
- * network). A small script restyles it (theme colours, text size), lays it out in pages or as one
- * scroll, reports the position and turns pages.
+ * network). Each chapter is prepared by [Chapter] with the reader's style and script, which lay
+ * it out in pages or as one scroll, report the position and turn pages.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -174,21 +174,20 @@ private fun BookView(model: BookReaderModel, epub: Epub, page: Page, onTap: () -
                 webViewClient = object : WebViewClient() {
                     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
                         val url = request.url
-                        if (url.host != HOST) return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
+                        if (url.host != HOST) return empty()
                         val path = URLDecoder.decode(url.encodedPath.orEmpty().removePrefix("/"), "UTF-8")
-                        val stream = runCatching { epub.open(path) }.getOrNull()
-                            ?: return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
-                        return WebResourceResponse(mime(path), null, stream)
+                        val bytes = runCatching { epub.open(path)?.use { it.readBytes() } }.getOrNull() ?: return empty()
+                        if (path !in epub.spine) return WebResourceResponse(mime(path), null, ByteArrayInputStream(bytes))
+                        val source = Chapter.decode(bytes)
+                        val html = Chapter.render(source, css(model, page), script(model, path, epub))
+                        val type = if (Chapter.keepsMarkup(source)) mime(path) else "text/html"
+                        return WebResourceResponse(type, "utf-8", ByteArrayInputStream(html.toByteArray()))
                     }
 
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                         val url = request.url
                         if (url.host == HOST) model.openPath(URLDecoder.decode(url.encodedPath.orEmpty().removePrefix("/"), "UTF-8"))
                         return true
-                    }
-
-                    override fun onPageFinished(view: WebView, url: String) {
-                        view.evaluateJavascript(script(model, page), null)
                     }
                 }
             }
@@ -203,6 +202,8 @@ private fun BookView(model: BookReaderModel, epub: Epub, page: Page, onTap: () -
         },
     )
 }
+
+private fun empty() = WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
 
 /** What the page's script may call; calls arrive on a WebView thread and are handed to the main one. */
 internal class Bridge(private val model: BookReaderModel) {
@@ -258,80 +259,91 @@ private fun mime(path: String) = when (path.substringAfterLast('.').lowercase())
 
 private fun css(model: BookReaderModel, page: Page): String {
     val common = """
-        html, body { background: ${page.background} !important; }
-        body { color: ${page.text} !important; font-size: ${model.textSize}px !important; line-height: 1.6 !important;
-               margin: 0 !important; overflow-wrap: break-word; -webkit-text-size-adjust: 100%; }
-        body * { color: inherit !important; background-color: transparent !important; }
-        a, a * { color: ${page.link} !important; }
-        img, svg, video { max-width: 100% !important; height: auto !important; }
-        p { hyphens: auto; }
+        html, body { margin: 0 !important; padding: 0 !important; background: ${page.background} !important; }
+        body { -webkit-text-size-adjust: 100%; }
+        #g-flow { box-sizing: border-box; color: ${page.text} !important; font-size: ${model.textSize}px !important;
+                  line-height: 1.6 !important; overflow-wrap: break-word; hyphens: auto; text-align: start; }
+        #g-flow * { color: inherit !important; background-color: transparent !important; max-width: 100% !important; }
+        #g-flow p, #g-flow div, #g-flow span, #g-flow li, #g-flow td, #g-flow blockquote, #g-flow a, #g-flow em, #g-flow i, #g-flow b, #g-flow strong {
+                  font-size: inherit !important; line-height: inherit !important; }
+        #g-flow h1 { font-size: 1.6em !important; line-height: 1.3 !important; }
+        #g-flow h2 { font-size: 1.35em !important; line-height: 1.3 !important; }
+        #g-flow h3 { font-size: 1.2em !important; line-height: 1.3 !important; }
+        #g-flow h4, #g-flow h5, #g-flow h6 { font-size: 1.05em !important; line-height: 1.3 !important; }
+        #g-flow a[href], #g-flow a[href] * { color: ${page.link} !important; text-decoration: none; }
+        #g-flow img, #g-flow svg, #g-flow video { max-width: 100% !important; height: auto !important; }
+        #g-end { display: inline-block; width: 1px; height: 1px; }
     """
     val layout = if (model.paged) """
-        html { height: 100% !important; overflow: hidden !important; }
-        body { height: 100vh !important; box-sizing: border-box !important; padding: 28px 20px !important;
-               column-width: calc(100vw - 40px) !important; column-gap: 40px !important; column-fill: auto !important; }
-        img, svg { max-height: calc(100vh - 56px) !important; object-fit: contain; break-inside: avoid; }
+        html, body { height: 100% !important; overflow: hidden !important; }
+        #g-flow { position: absolute !important; top: 0; left: 0; width: 100vw !important; height: 100vh !important;
+                  margin: 0 !important; padding: 32px 24px !important; column-width: calc(100vw - 48px); column-gap: 48px;
+                  column-fill: auto; }
+        #g-flow img, #g-flow svg { max-height: calc(100vh - 72px) !important; object-fit: contain; break-inside: avoid; }
     """ else """
-        body { padding: 24px 20px 24px !important; }
-        #grimoire-end { text-align: center; padding: 32px 0 64px; opacity: .8; }
-        #grimoire-end button { font: inherit; padding: 10px 20px; border-radius: 20px; border: 1px solid ${page.link};
-               background: transparent; color: ${page.link} !important; }
+        #g-flow { padding: 24px 20px 8px !important; }
+        #g-next { display: block; margin: 24px auto 64px; font: inherit; font-size: 16px; padding: 10px 22px;
+                  border-radius: 22px; border: 1px solid ${page.link}; background: transparent; color: ${page.link}; }
+        #g-last { text-align: center; margin: 24px 0 64px; opacity: .7; color: ${page.text}; }
     """
     return common + layout
 }
 
-/** Runs once per loaded chapter. Kept in plain ES5: some EPUB pages are parsed as strict XHTML. */
-private fun script(model: BookReaderModel, page: Page): String {
+/** The reader's part of every chapter. Plain ES5 inside CDATA: chapters are often strict XHTML. */
+private fun script(model: BookReaderModel, path: String, epub: Epub): String {
     val config = JSONObject()
-        .put("css", css(model, page))
         .put("paged", model.paged)
-        .put("start", model.start.toDouble())
-        .put("last", model.index == model.count - 1)
+        .put("start", if (path == epub.spine.getOrNull(model.index)) model.start.toDouble() else 0.0)
+        .put("last", path == epub.spine.last())
     return """
 (function () {
   var c = $config;
-  var head = document.head || document.getElementsByTagName('head')[0] || document.documentElement;
-  if (!document.querySelector('meta[name=viewport]')) {
-    var m = document.createElementNS('http://www.w3.org/1999/xhtml', 'meta');
-    m.setAttribute('name', 'viewport'); m.setAttribute('content', 'width=device-width, initial-scale=1');
-    head.appendChild(m);
-  }
-  var s = document.createElementNS('http://www.w3.org/1999/xhtml', 'style');
-  s.textContent = c.css; head.appendChild(s);
+  var flow = document.getElementById('g-flow'), end = document.getElementById('g-end');
   var se = document.scrollingElement || document.documentElement;
-  var W = function () { return window.innerWidth; };
-  if (!c.paged && document.body) {
-    var end = document.createElementNS('http://www.w3.org/1999/xhtml', 'div');
-    end.id = 'grimoire-end';
-    if (c.last) { end.textContent = 'Fin du livre'; }
-    else {
-      var b = document.createElementNS('http://www.w3.org/1999/xhtml', 'button');
-      b.textContent = 'Partie suivante';
-      b.addEventListener('click', function (e) { e.stopPropagation(); Grimoire.next(); });
-      end.appendChild(b);
-    }
-    document.body.appendChild(end);
+  var page = 0, fraction = c.start, shown = false;
+  function W() { return window.innerWidth; }
+  function count() {
+    var x = end.getBoundingClientRect().left - flow.getBoundingClientRect().left;
+    return Math.max(1, Math.floor((x + 1) / W()) + 1);
   }
-  function count() { return Math.max(1, Math.round(se.scrollWidth / W())); }
+  function show(p) { page = p; flow.style.transform = 'translateX(' + (-p * W()) + 'px)'; }
   function report() {
-    var f;
-    if (c.paged) { var n = count(); var p = Math.round(se.scrollLeft / W()); f = n > 1 ? p / (n - 1) : 1; }
-    else { var max = se.scrollHeight - window.innerHeight; f = max > 0 ? se.scrollTop / max : 1; }
-    Grimoire.position(f);
+    if (c.paged) { var n = count(); fraction = n > 1 ? page / (n - 1) : 1; }
+    else { var max = se.scrollHeight - window.innerHeight; fraction = max > 0 ? se.scrollTop / max : 1; }
+    Grimoire.position(fraction);
   }
-  var timer = null;
-  window.addEventListener('scroll', function () { if (timer) clearTimeout(timer); timer = setTimeout(report, 250); }, { passive: true });
+  function go(f) {
+    try {
+      if (c.paged) { var n = count(); show(Math.round(f * (n - 1))); }
+      else { se.scrollTop = f * (se.scrollHeight - window.innerHeight); }
+      report();
+    } finally {
+      if (!shown) { shown = true; document.body.style.visibility = 'visible'; }
+    }
+  }
   window.grimoire = {
     turn: function (d) {
-      var n = count(); var p = Math.round(se.scrollLeft / W()) + d;
+      var n = count(), p = page + d;
       if (p < 0) { Grimoire.prev(); return; }
       if (p >= n) { Grimoire.next(); return; }
-      se.scrollLeft = p * W(); report();
+      show(p); report();
     }
   };
+  document.body.style.visibility = 'hidden';
+  if (!c.paged) {
+    var tail;
+    if (c.last) { tail = document.createElement('p'); tail.id = 'g-last'; tail.textContent = 'Fin du livre'; }
+    else {
+      tail = document.createElement('button'); tail.id = 'g-next'; tail.textContent = 'Partie suivante';
+      tail.addEventListener('click', function (e) { e.stopPropagation(); Grimoire.next(); });
+    }
+    document.body.appendChild(tail);
+    var timer = null;
+    window.addEventListener('scroll', function () { if (timer) clearTimeout(timer); timer = setTimeout(report, 250); }, { passive: true });
+  }
   document.addEventListener('click', function (e) {
     var t = e.target;
-    while (t && t.nodeType === 1) { var n = t.nodeName.toLowerCase(); if (n === 'a' || n === 'button') return; t = t.parentNode; }
+    if (t && t.closest && t.closest('a[href], button')) return;
     Grimoire.tap(e.clientX / W());
   });
   if (c.paged) {
@@ -343,12 +355,10 @@ private fun script(model: BookReaderModel, page: Page): String {
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) window.grimoire.turn(dx < 0 ? 1 : -1);
     }, { passive: true });
   }
-  function go() {
-    if (c.paged) { var n = count(); se.scrollLeft = Math.round(c.start * (n - 1)) * W(); }
-    else { se.scrollTop = c.start * (se.scrollHeight - window.innerHeight); }
-    report();
-  }
-  if (document.readyState === 'complete') setTimeout(go, 80); else window.addEventListener('load', function () { setTimeout(go, 80); });
+  window.addEventListener('resize', function () { go(fraction); });
+  function ready() { setTimeout(function () { go(c.start); }, 30); }
+  if (document.readyState === 'complete') ready(); else window.addEventListener('load', ready);
+  setTimeout(function () { if (!shown) go(c.start); }, 1500);
 })();
 """
 }

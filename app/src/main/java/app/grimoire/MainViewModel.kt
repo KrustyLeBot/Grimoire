@@ -13,6 +13,7 @@ import app.grimoire.book.Books
 import app.grimoire.book.Epub
 import app.grimoire.book.Imported
 import app.grimoire.data.LibraryItem
+import app.grimoire.data.WebSearch
 import app.grimoire.data.Ops
 import app.grimoire.data.SeriesProgress
 import app.grimoire.data.seriesKey
@@ -44,6 +45,7 @@ sealed interface Screen {
     data object History : Screen
     data class Book(val id: String) : Screen
     data class BookReader(val id: String) : Screen
+    data class Web(val url: String, val title: String) : Screen
 }
 
 /** The "Lecture" section's tabs. Other sections (Reddit…) will sit next to it. */
@@ -261,14 +263,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun importBook(uri: Uri) = addBook { app.books.import(uri, ::knownBook) }
 
-    fun downloadBook(url: String) = addBook { app.books.download(url, ::knownBook) }
+    /** [page]: the web page the download was started from, saved to come back to it. */
+    fun downloadBook(url: String, headers: Map<String, String> = emptyMap(), page: String? = null) =
+        addBook { app.books.download(url, headers, page, ::knownBook) }
 
     private fun addBook(load: suspend () -> Imported) {
         importing = true
         viewModelScope.launch {
             try {
                 val b = load()
-                store.update(op = Ops.addBook(LibraryItem(Books.SOURCE, b.id, b.title, null, Kind.NOVEL, System.currentTimeMillis(), b.isbns)))
+                store.update(op = Ops.addBook(LibraryItem(Books.SOURCE, b.id, b.title, null, Kind.NOVEL, System.currentTimeMillis(), b.isbns, b.link, b.page)))
                 show(if (b.replaced) "Fichier de « ${b.title} » remplacé" else "« ${b.title} » ajouté à la bibliothèque")
                 open(Screen.Book(b.id))
                 describeBook(b.id, force = true)
@@ -316,6 +320,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun deleteBookFile(id: String) = app.books.delete(id)
+
+    // ---- web searches ----
+
+    fun saveWebSearch(index: Int?, search: WebSearch) = store.update(op = Ops.saveWebSearch(index, search))
+
+    fun removeWebSearch(index: Int) = store.update(op = Ops.removeWebSearch(index))
+
+    fun openWeb(search: WebSearch, query: String) = open(Screen.Web(search.urlFor(query), search.name))
 
     fun removeBook(id: String) {
         removeFromLibrary(seriesKey(Books.SOURCE, id))

@@ -9,6 +9,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
+import org.jsoup.Jsoup
+import org.jsoup.parser.Parser
 
 /** What the internet knows of a book edition. Cached on each phone, never synced. */
 data class BookInfo(
@@ -77,6 +79,53 @@ data class BookInfo(
                 cover = b.obj("cover")?.let { it.str("large") ?: it.str("medium") },
                 isbns = (listOf(isbn) + ids?.strings("isbn_13").orEmpty() + ids?.strings("isbn_10").orEmpty())
                     .mapNotNull(Isbn::normalize).distinct(),
+            )
+        }
+
+        /** BnF catalogue SRU answer (Dublin Core): the reference for books published in France. */
+        fun fromBnf(text: String, isbn: String): BookInfo? {
+            val record = Jsoup.parse(text, "", Parser.xmlParser()).getElementsByTag("oai_dc:dc").firstOrNull() ?: return null
+            fun all(tag: String) = record.getElementsByTag(tag).map { it.text().trim() }.filter { it.isNotEmpty() }
+            val title = all("dc:title").firstOrNull()?.substringBefore(" / ")?.substringBefore(" : ")?.trim()?.ifEmpty { null } ?: return null
+            return BookInfo(
+                title = title,
+                authors = all("dc:creator").map(::bnfName).filter { it.isNotEmpty() },
+                publisher = all("dc:publisher").firstOrNull()?.substringBefore(" (")?.trim(),
+                published = all("dc:date").firstOrNull(),
+                pages = all("dc:format").firstNotNullOfOrNull { Regex("""(\d+)\s*p\.""").find(it)?.groupValues?.get(1)?.toIntOrNull() },
+                language = all("dc:language").firstOrNull()?.let(::iso639),
+                isbns = (listOf(isbn) + all("dc:identifier").flatMap { Isbn.all(it) }).distinct(),
+            )
+        }
+
+        /** "Saint-Exupéry, Antoine de (1900-1944). Auteur du texte" → "Antoine de Saint-Exupéry". */
+        internal fun bnfName(raw: String): String {
+            val name = raw.substringBefore(" (").substringBefore(". ").trim().removeSuffix(".")
+            val last = name.substringBefore(", ")
+            val first = name.substringAfter(", ", "")
+            return if (first.isEmpty()) last else "$first $last"
+        }
+
+        /** Catalogues give ISO 639-2 codes ("fre", "eng"), the app shows ISO 639-1. */
+        internal fun iso639(code: String): String {
+            val c = code.trim().lowercase()
+            return BIBLIOGRAPHIC[c] ?: java.util.Locale.forLanguageTag(c).language.takeIf { it.length == 2 } ?: c
+        }
+
+        private val BIBLIOGRAPHIC = mapOf(
+            "fre" to "fr", "fra" to "fr", "eng" to "en", "ger" to "de", "deu" to "de", "spa" to "es", "ita" to "it",
+            "por" to "pt", "dut" to "nl", "nld" to "nl", "jpn" to "ja", "chi" to "zh", "zho" to "zh", "kor" to "ko",
+        )
+
+        /** Open Library `search.json` answer: the first work, without its ISBNs (they mix editions and languages). */
+        fun fromOpenLibrarySearch(text: String): BookInfo? {
+            val doc = (json.parseToJsonElement(text) as? JsonObject)?.arr("docs")?.firstOrNull() as? JsonObject ?: return null
+            val title = doc.str("title") ?: return null
+            return BookInfo(
+                title = title,
+                authors = doc.strings("author_name"),
+                published = (doc["first_publish_year"] as? JsonPrimitive)?.contentOrNull,
+                cover = doc.int("cover_i")?.let { "https://covers.openlibrary.org/b/id/$it-L.jpg" },
             )
         }
 

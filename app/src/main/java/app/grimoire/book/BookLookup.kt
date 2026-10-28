@@ -1,6 +1,7 @@
 package app.grimoire.book
 
 import app.grimoire.source.Http
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -8,40 +9,72 @@ import java.net.URLEncoder
 import java.text.Normalizer
 
 /**
- * Title, authors, summary, language and cover of a book, from the internet rather than from the
- * file: Google Books first (best for French editions), Open Library to fill the gaps and for its
- * larger covers. No account or key. Each ISBN the file carries is tried in turn (the digital one
- * is often unknown where the print one is); a file without ISBN is searched by title and author.
+ * Title, authors, language and cover of a book, from catalogues rather than from the file. By
+ * ISBN: Open Library (covers), the BnF catalogue (every book published in France), then Google
+ * Books, which only answers with an API key nowadays (an anonymous call gets 429): it is used
+ * when [googleKey] gives one. Each ISBN the file carries is tried in turn (the digital one is
+ * often unknown where the print one is); a file without ISBN is searched by title and author.
  */
-class BookLookup(private val http: Http) {
-    /** Null when nothing matches; network errors are thrown. */
+class BookLookup(private val http: Http, private val googleKey: () -> String?) {
+    /** Null when nothing matches; thrown only when every catalogue failed (offline…). */
     suspend fun find(isbns: List<String>, title: String, authors: List<String>, language: String?): BookInfo? {
-        for (isbn in isbns) byIsbn(isbn)?.let { return it.copy(isbns = (isbns + it.isbns).distinct()) }
-        return byTitle(title, authors, language)
+        val calls = Calls()
+        for (isbn in isbns) {
+            byIsbn(isbn, calls)?.let { info ->
+                return info.copy(isbns = (isbns + info.isbns).distinct(), language = info.language ?: language)
+            }
+        }
+        byTitle(title, authors, language, calls)?.let { return it.copy(language = it.language ?: language) }
+        if (!calls.answered) calls.failures.firstOrNull()?.let { throw it }
+        return null
     }
 
-    private suspend fun byIsbn(isbn: String): BookInfo? {
-        val google = BookInfo.fromGoogle(http.get("$GOOGLE?q=isbn:$isbn")).firstOrNull()
-        val openLibrary = runCatching {
+    /** Whether any catalogue answered at all, to tell "unknown book" from "no network". */
+    private class Calls {
+        var answered = false
+        val failures = mutableListOf<Exception>()
+    }
+
+    private suspend fun byIsbn(isbn: String, calls: Calls): BookInfo? {
+        val openLibrary = attempt(calls) {
             BookInfo.fromOpenLibrary(http.get("https://openlibrary.org/api/books?bibkeys=ISBN:$isbn&format=json&jscmd=data"), isbn)
-        }.getOrNull()
-        val info = (google ?: openLibrary ?: return null).or(openLibrary)
-        val bigCover = openLibrary?.cover ?: openLibraryCover(isbn)
-        return (if (bigCover != null) info.copy(cover = bigCover) else info).let { it.copy(isbns = (listOf(isbn) + it.isbns).distinct()) }
+        }
+        val bnf = attempt(calls) {
+            val query = URLEncoder.encode("bib.isbn adj \"$isbn\"", "UTF-8")
+            BookInfo.fromBnf(http.get("https://catalogue.bnf.fr/api/SRU?version=1.2&operation=searchRetrieve&query=$query&recordSchema=dublincore&maximumRecords=1"), isbn)
+        }
+        val google = googleKey()?.let { key ->
+            attempt(calls) { BookInfo.fromGoogle(http.get("$GOOGLE?q=isbn:$isbn&key=$key")).firstOrNull() }
+        }
+        // Google has the summaries, the BnF the most accurate French data, Open Library the covers.
+        val info = (google ?: bnf ?: openLibrary ?: return null).or(bnf).or(openLibrary)
+        val cover = openLibrary?.cover ?: openLibraryCover(isbn) ?: info.cover
+        return info.copy(cover = cover, isbns = (listOf(isbn) + info.isbns).distinct())
     }
 
-    /** The first result whose title matches, in the book's language when it is known. */
-    private suspend fun byTitle(title: String, authors: List<String>, language: String?): BookInfo? {
-        val q = buildString {
-            append("intitle:").append(enc(title))
-            authors.firstOrNull()?.let { append("+inauthor:").append(enc(it.substringAfterLast(' '))) }
-        }
-        val lang = language?.take(2)?.lowercase()?.let { "&langRestrict=$it" }.orEmpty()
+    private suspend fun byTitle(title: String, authors: List<String>, language: String?, calls: Calls): BookInfo? {
+        if (title.isBlank()) return null
         val wanted = simple(title)
-        return BookInfo.fromGoogle(http.get("$GOOGLE?q=$q$lang&maxResults=10")).firstOrNull { r ->
-            val t = simple(r.title)
-            t == wanted || t.startsWith(wanted) || wanted.startsWith(t)
+        fun matches(t: String) = simple(t).let { it == wanted || it.startsWith(wanted) || wanted.startsWith(it) }
+        val author = authors.firstOrNull()?.substringAfterLast(' ')
+        googleKey()?.let { key ->
+            val q = "intitle:" + enc(title) + (author?.let { "+inauthor:" + enc(it) } ?: "")
+            val lang = language?.take(2)?.lowercase()?.let { "&langRestrict=$it" }.orEmpty()
+            attempt(calls) { BookInfo.fromGoogle(http.get("$GOOGLE?q=$q$lang&maxResults=10&key=$key")).firstOrNull { matches(it.title) } }
+                ?.let { return it }
         }
+        val url = "https://openlibrary.org/search.json?title=" + URLEncoder.encode(title, "UTF-8") +
+            (author?.let { "&author=" + URLEncoder.encode(it, "UTF-8") } ?: "") + "&limit=5"
+        return attempt(calls) { BookInfo.fromOpenLibrarySearch(http.get(url)) }?.takeIf { matches(it.title) }
+    }
+
+    private suspend fun <T> attempt(calls: Calls, block: suspend () -> T?): T? = try {
+        block().also { calls.answered = true }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        calls.failures += e
+        null
     }
 
     /** Open Library's cover by ISBN, only if it has one (`default=false` answers 404 otherwise). */

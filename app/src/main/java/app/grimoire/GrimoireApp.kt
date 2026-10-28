@@ -34,7 +34,7 @@ class GrimoireApp : Application(), SingletonImageLoader.Factory {
     val updater by lazy { SuiteUpdater(this, "KrustyLeBot/Grimoire", "$packageName.fileprovider") }
     val settings by lazy { Settings(this) }
     val books by lazy { Books(this, http) }
-    val lookup by lazy { BookLookup(http) }
+    val lookup by lazy { BookLookup(http) { settings.googleBooksKey } }
 
     /** Work that outlives a screen (marking a chapter read when leaving the reader, say). */
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)

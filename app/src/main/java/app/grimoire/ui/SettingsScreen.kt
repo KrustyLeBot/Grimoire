@@ -24,6 +24,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.runtime.collectAsState
+import app.grimoire.data.WebSearch
 import app.grimoire.MainViewModel
 import app.grimoire.Screen
 import app.grimoire.suite.AboutSettings
@@ -44,6 +55,11 @@ fun SettingsScreen(vm: MainViewModel) {
     var wifiOnly by remember { mutableStateOf(settings.wifiOnlyDownloads) }
     var size by remember { mutableLongStateOf(vm.app.downloads.sizeBytes()) }
     var confirmDelete by remember { mutableStateOf(false) }
+    val data by vm.data.collectAsState()
+    var bookBytes by remember { mutableLongStateOf(vm.app.books.sizeBytes()) }
+    var confirmBooks by remember { mutableStateOf(false) }
+    var googleKey by remember { mutableStateOf(settings.googleBooksKey.orEmpty()) }
+    var editing by remember { mutableStateOf<Pair<Int?, WebSearch>?>(null) }
 
     Scaffold(topBar = { SuiteTopBar("Paramètres", onBack = { vm.back() }) }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
@@ -78,6 +94,33 @@ fun SettingsScreen(vm: MainViewModel) {
                 OutlinedButton(onClick = { confirmDelete = true }, enabled = size > 0) { Text("Tout supprimer") }
             }
 
+            SectionTitle("Livres")
+            SettingsCard {
+                Text("Fichiers EPUB : ${bookBytes / 1_000_000} Mo", fontWeight = FontWeight.SemiBold)
+                SettingsHint("Gardés sur le téléphone seulement. Ta lecture est synchronisée, et un livre se retélécharge depuis sa page.")
+                OutlinedButton(onClick = { confirmBooks = true }, enabled = bookBytes > 0) { Text("Supprimer les fichiers") }
+                OutlinedTextField(
+                    googleKey, { googleKey = it; settings.googleBooksKey = it },
+                    label = { Text("Clé API Google Books (facultatif)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                SettingsHint("Les infos des livres viennent d'Open Library et de la BnF. Google Books ajoute les résumés, mais demande une clé gratuite (console.cloud.google.com › API Books).")
+            }
+
+            SectionTitle("Recherche web")
+            SettingsCard {
+                SettingsHint("Des sites où chercher un livre depuis Recherche ou depuis la page d'un livre. Ils s'ouvrent dans Grimoire : un EPUB téléchargé arrive directement dans ta bibliothèque, avec son lien.")
+                data.webSearches.forEachIndexed { i, w ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f).tappable { editing = i to w }) {
+                            Text(w.name, fontWeight = FontWeight.SemiBold)
+                            SettingsHint(w.url)
+                        }
+                        IconButton(onClick = { vm.removeWebSearch(i) }) { Icon(Icons.Default.DeleteOutline, "Supprimer") }
+                    }
+                }
+                OutlinedButton(onClick = { editing = null to WebSearch("", "https://") }) { Text("Ajouter un site") }
+            }
+
             SyncSettings(vm.store.syncPath)
             UpdateSettings(vm.updates)
             AboutSettings(
@@ -86,6 +129,32 @@ fun SettingsScreen(vm: MainViewModel) {
             )
             Spacer(Modifier.height(32.dp))
         }
+    }
+    if (confirmBooks) {
+        ConfirmDialog(
+            "Supprimer les fichiers des livres ?", "${bookBytes / 1_000_000} Mo libérés. Les livres restent dans ta bibliothèque avec ta lecture.", "Supprimer",
+            onConfirm = { vm.app.books.deleteAll(); bookBytes = 0 }, onDismiss = { confirmBooks = false }, destructive = true,
+        )
+    }
+    editing?.let { (index, search) ->
+        var name by remember(index) { mutableStateOf(search.name) }
+        var url by remember(index) { mutableStateOf(search.url) }
+        val valid = name.isNotBlank() && url.startsWith("http") && WebSearch.PLACEHOLDER in url
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text(if (index == null) "Ajouter un site" else "Modifier le site") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(name, { name = it }, label = { Text("Nom") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(url, { url = it }, label = { Text("Adresse de recherche") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    SettingsHint("Écris {q} là où va la recherche (titre, auteur ou ISBN), par exemple https://exemple.com/s/{q}")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { vm.saveWebSearch(index, WebSearch(name.trim(), url.trim())); editing = null }, enabled = valid) { Text("Enregistrer") }
+            },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text("Annuler") } },
+        )
     }
     if (confirmDelete) {
         ConfirmDialog(

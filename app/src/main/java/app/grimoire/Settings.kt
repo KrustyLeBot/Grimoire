@@ -27,4 +27,9 @@ class Settings(context: Context) {
     var libraryCheckedAt: Long
         get() = prefs.getLong("library_checked_at", 0)
         set(v) = prefs.edit().putLong("library_checked_at", v).apply()
+
+    /** Optional Google Books API key: without one Google answers 429, and other catalogues are used. */
+    var googleBooksKey: String?
+        get() = prefs.getString("google_books_key", null)?.trim()?.ifEmpty { null }
+        set(v) = prefs.edit().putString("google_books_key", v?.trim()).apply()
 }

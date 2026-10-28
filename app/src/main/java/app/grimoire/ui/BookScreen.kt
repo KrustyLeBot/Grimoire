@@ -128,6 +128,7 @@ fun BookScreen(vm: MainViewModel, id: String) {
                 ) {
                     OutlinedButton(onClick = { pick.launch(arrayOf("application/epub+zip", "application/octet-stream")) }) { Text("Choisir le fichier") }
                 }
+                GetAgain(vm, item?.link, item?.page, isbns.firstOrNull() ?: info?.title ?: item?.title.orEmpty())
                 Spacer(Modifier.height(8.dp))
             }
 
@@ -164,6 +165,33 @@ fun BookScreen(vm: MainViewModel, id: String) {
             "Retirer ce livre ?", "Il disparaît de la bibliothèque sur tous tes appareils, et son fichier de ce téléphone.",
             "Retirer", onConfirm = { vm.removeBook(id) }, onDismiss = { confirm = null }, destructive = true,
         )
+    }
+}
+
+/**
+ * Ways to get the file back: its download link, the page it came from (when the link has expired:
+ * captcha, rotating links), or the configured web searches with its ISBN.
+ */
+@Composable
+private fun GetAgain(vm: MainViewModel, link: String?, page: String?, query: String) {
+    val data by vm.data.collectAsState()
+    val online by vm.app.online.collectAsState()
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (link != null) {
+            Button(onClick = { vm.downloadBook(link, page = page) }, enabled = online && !vm.importing, modifier = Modifier.fillMaxWidth()) {
+                Text(if (vm.importing) "Téléchargement…" else "Retélécharger")
+            }
+        }
+        if (page != null) {
+            OutlinedButton(onClick = { vm.open(Screen.Web(page, "Téléchargement")) }, enabled = online, modifier = Modifier.fillMaxWidth()) {
+                Text("Ouvrir la page de téléchargement")
+            }
+        }
+        data.webSearches.forEach { w ->
+            OutlinedButton(onClick = { vm.openWeb(w, query) }, enabled = online, modifier = Modifier.fillMaxWidth()) {
+                Text("Chercher sur ${w.name}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
     }
 }
 

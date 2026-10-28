@@ -9,13 +9,17 @@ import org.json.JSONObject
 object Codec {
     const val FORMAT_VERSION = 1
 
-    fun sources(list: List<SourceConfig>): String = root().put(
+    /** sources.json holds the sources and the web searches. */
+    fun sources(list: List<SourceConfig>, searches: List<WebSearch> = emptyList()): String = root().put(
         "sources",
         JSONArray(list.map { s ->
             JSONObject().put("id", s.id).put("type", s.type).put("name", s.name).put("baseUrl", s.baseUrl)
                 .put("enabled", s.enabled).put("options", JSONObject(s.options as Map<*, *>))
         }),
-    ).toString(2)
+    ).put("web_searches", JSONArray(searches.map { JSONObject().put("name", it.name).put("url", it.url) })).toString(2)
+
+    fun webSearches(text: String): List<WebSearch> =
+        objects(check(text).optJSONArray("web_searches")).map { WebSearch(it.optString("name"), it.getString("url")) }
 
     fun sources(text: String): List<SourceConfig> = objects(check(text).optJSONArray("sources")).map { o ->
         val options = o.optJSONObject("options")
@@ -32,6 +36,8 @@ object Codec {
             JSONObject().put("source", i.source).put("slug", i.slug).put("title", i.title).put("cover", i.cover)
                 .put("kind", i.kind.raw).put("added", i.added)
                 .apply { if (i.isbns.isNotEmpty()) put("isbns", JSONArray(i.isbns)) }
+                .apply { if (i.link != null) put("link", i.link) }
+                .apply { if (i.page != null) put("page", i.page) }
         }),
     ).toString(2)
 
@@ -40,6 +46,8 @@ object Codec {
             source = o.getString("source"), slug = o.getString("slug"), title = o.optString("title"),
             cover = o.optString("cover").ifBlank { null }, kind = Kind.of(o.optString("kind")), added = o.optLong("added"),
             isbns = o.optJSONArray("isbns")?.let { a -> List(a.length()) { a.getString(it) } }.orEmpty(),
+            link = o.optString("link").ifBlank { null },
+            page = o.optString("page").ifBlank { null },
         )
     }
 

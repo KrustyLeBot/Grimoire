@@ -20,6 +20,9 @@ data class Imported(
     val language: String?,
     val isbns: List<String>,
     val replaced: Boolean,
+    /** The download link, when the file came from one, and the page that offered it. */
+    val link: String? = null,
+    val page: String? = null,
 )
 
 /**
@@ -47,12 +50,23 @@ class Books(private val context: Context, private val http: Http) {
         input.use { store(it, known) }
     }
 
-    /** A link to an .epub (shared from a browser, say). */
-    suspend fun download(url: String, known: (List<String>) -> String?): Imported = withContext(Dispatchers.IO) {
-        http.images.newCall(Request.Builder().url(url).build()).execute().use { r ->
-            if (!r.isSuccessful) throw EpubException("Téléchargement impossible (${r.code})")
-            store(r.body!!.byteStream(), known)
+    /**
+     * A link to an .epub: shared from a browser, offered by a site in the in-app browser (whose
+     * cookies come along, so a logged-in download works), or saved with the book.
+     */
+    suspend fun download(url: String, headers: Map<String, String>, page: String?, known: (List<String>) -> String?): Imported = withContext(Dispatchers.IO) {
+        val request = Request.Builder().url(url).apply { headers.forEach { (k, v) -> header(k, v) } }.build()
+        http.images.newCall(request).execute().use { r ->
+            if (!r.isSuccessful) throw EpubException("Téléchargement impossible (${r.code}) : le lien a peut-être expiré")
+            store(r.body!!.byteStream(), known).copy(link = url, page = page)
         }
+    }
+
+    fun sizeBytes(): Long = dir.listFiles()?.sumOf { it.length() } ?: 0
+
+    fun deleteAll() {
+        dir.listFiles()?.forEach { it.delete() }
+        _present.value = scan()
     }
 
     fun delete(id: String) {

@@ -7,6 +7,7 @@ import androidx.core.content.IntentCompat
 import app.grimoire.book.BookReaderModel
 import app.grimoire.book.BookReaderScreen
 import app.grimoire.ui.BookScreen
+import app.grimoire.ui.WebScreen
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -61,6 +62,7 @@ class MainActivity : ComponentActivity() {
                     Screen.Settings -> SettingsScreen(vm)
                     Screen.History -> HistoryScreen(vm)
                     is Screen.Book -> BookScreen(vm, s.id)
+                    is Screen.Web -> WebScreen(vm, s.url, s.title)
                     is Screen.BookReader -> {
                         val model = remember(s.id) { BookReaderModel(vm.app, s.id, vm.app.scope) }
                         BookReaderScreen(model, onBack = { vm.back() })

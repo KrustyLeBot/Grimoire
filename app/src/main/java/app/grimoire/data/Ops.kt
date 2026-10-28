@@ -16,7 +16,9 @@ object Ops {
     fun addBook(item: LibraryItem): (AppData) -> AppData = { d ->
         val existing = d.library.firstOrNull { it.key == item.key }
         if (existing == null) d.copy(library = d.library + item)
-        else d.copy(library = d.library.map { if (it.key == item.key) it.copy(isbns = (it.isbns + item.isbns).distinct()) else it })
+        else d.copy(library = d.library.map {
+            if (it.key == item.key) it.copy(isbns = (it.isbns + item.isbns).distinct(), link = item.link ?: it.link, page = item.page ?: it.page) else it
+        })
     }
 
     /** What the online lookup found: title and cover shown on every phone. */
@@ -60,4 +62,10 @@ object Ops {
     }
 
     fun removeSource(id: String): (AppData) -> AppData = { d -> d.copy(sources = d.sources.filterNot { it.id == id }) }
+
+    fun saveWebSearch(index: Int?, search: WebSearch): (AppData) -> AppData = { d ->
+        d.copy(webSearches = if (index == null || index !in d.webSearches.indices) d.webSearches + search else d.webSearches.toMutableList().also { it[index] = search })
+    }
+
+    fun removeWebSearch(index: Int): (AppData) -> AppData = { d -> d.copy(webSearches = d.webSearches.filterIndexed { i, _ -> i != index }) }
 }

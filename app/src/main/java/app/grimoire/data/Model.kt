@@ -16,6 +16,10 @@ data class LibraryItem(
     val kind: Kind,
     val added: Long,
     val isbns: List<String> = emptyList(),
+    /** Where a book's file was downloaded from, to fetch it again on another phone… */
+    val link: String? = null,
+    /** …and the page it was downloaded from, for when the link expires (captcha, rotating links). */
+    val page: String? = null,
 ) {
     val key get() = seriesKey(source, slug)
 }
@@ -37,9 +41,22 @@ data class SeriesProgress(
     val pages: Map<String, Int> = emptyMap(),
 )
 
+/**
+ * A website to search on, opened in the browser: [url] holds `{q}` where the search goes
+ * (a title, an author, an ISBN…). Set up by the user, kept with the sources.
+ */
+data class WebSearch(val name: String, val url: String) {
+    fun urlFor(query: String): String = url.replace(PLACEHOLDER, java.net.URLEncoder.encode(query.trim(), "UTF-8").replace("+", "%20"))
+
+    companion object {
+        const val PLACEHOLDER = "{q}"
+    }
+}
+
 /** Everything kept in the synced folder. */
 data class AppData(
     val sources: List<SourceConfig> = emptyList(),
+    val webSearches: List<WebSearch> = emptyList(),
     val library: List<LibraryItem> = emptyList(),
     val progress: Map<String, SeriesProgress> = emptyMap(),
 )

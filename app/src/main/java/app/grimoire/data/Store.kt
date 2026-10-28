@@ -46,8 +46,10 @@ class Store(private val context: Context) {
     fun load() {
         moveToFolder()
         val loaded = try {
+            val sources = read(SOURCES)
             AppData(
-                sources = read(SOURCES)?.let(Codec::sources) ?: defaultSources(),
+                sources = sources?.let(Codec::sources) ?: defaultSources(),
+                webSearches = sources?.let(Codec::webSearches).orEmpty(),
                 library = read(LIBRARY)?.let(Codec::library).orEmpty(),
                 progress = read(PROGRESS)?.let(Codec::progress).orEmpty(),
             ).also { _error.value = null }
@@ -90,7 +92,9 @@ class Store(private val context: Context) {
     private fun write() {
         val now = _data.value
         try {
-            if (now.sources != written.sources) save(SOURCES, Codec.sources(now.sources))
+            if (now.sources != written.sources || now.webSearches != written.webSearches) {
+                save(SOURCES, Codec.sources(now.sources, now.webSearches))
+            }
             if (now.library != written.library) save(LIBRARY, Codec.library(now.library))
             if (now.progress != written.progress) save(PROGRESS, Codec.progress(now.progress))
             if (now != written) ensureSyncIgnore()

@@ -31,6 +31,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material3.AssistChip
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Folder
@@ -255,6 +257,19 @@ private fun SearchTab(vm: MainViewModel, online: Boolean) {
             modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
         )
         SourceChips(vm, vm.searchSource, online) { vm.search(text, it) }
+        // Configured websites: the same search, opened inside Grimoire (books found there land in the library).
+        if (data.webSearches.isNotEmpty() && text.isNotBlank()) {
+            LazyRow(contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(data.webSearches.size) { i ->
+                    val w = data.webSearches[i]
+                    AssistChip(
+                        onClick = { vm.openWeb(w, text) }, enabled = online,
+                        label = { Text(w.name, maxLines = 1) },
+                        leadingIcon = { Icon(Icons.Default.Public, null, Modifier.size(18.dp)) },
+                    )
+                }
+            }
+        }
         when {
             enabled.isEmpty() -> NoSource(vm)
             !online -> Empty("Hors ligne : la recherche a besoin d'internet.")
