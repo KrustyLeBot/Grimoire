@@ -22,4 +22,9 @@ class Settings(context: Context) {
     var textSize: Int
         get() = prefs.getInt("text_size", 18)
         set(v) = prefs.edit().putInt("text_size", v).apply()
+
+    /** When the library's chapter lists were last checked for new chapters. */
+    var libraryCheckedAt: Long
+        get() = prefs.getLong("library_checked_at", 0)
+        set(v) = prefs.edit().putLong("library_checked_at", v).apply()
 }

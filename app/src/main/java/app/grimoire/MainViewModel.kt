@@ -45,6 +45,8 @@ enum class Feed(val label: String) { LATEST("Récents"), POPULAR("Populaires") }
 data class SeriesView(val details: SeriesDetails? = null, val loading: Boolean = false, val error: String? = null)
 
 
+private const val LIBRARY_CHECK_MS = 6 * 3_600_000L
+
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     val app = application as GrimoireApp
     val store = app.store
@@ -94,6 +96,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         syncOnOpen()
         updates.checkOnOpen()
+        if (System.currentTimeMillis() - app.settings.libraryCheckedAt > LIBRARY_CHECK_MS) refreshLibrary()
     }
 
     fun onLeave() = store.flush()
@@ -156,7 +159,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun removeFromLibrary(key: String) = store.update(op = Ops.removeFromLibrary(key))
 
-    /** Refreshes the chapter lists of the series in progress, one after the other, gently. */
+    /**
+     * Refreshes the chapter lists of the library, one series after the other, gently: a new
+     * chapter makes a finished series "En cours" again. Done on opening every few hours, or by hand.
+     */
     var refreshing by mutableStateOf(false)
         private set
 
@@ -165,9 +171,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refreshing = true
         viewModelScope.launch {
             try {
-                data.value.library.sortedByDescending { progress(it.key).last?.at ?: it.added }.take(40).forEach { item ->
+                data.value.library.sortedByDescending { progress(it.key).last?.at ?: it.added }.forEach { item ->
                     loadSeries(item.source, item.slug, force = true).join()
                 }
+                app.settings.libraryCheckedAt = System.currentTimeMillis()
             } finally {
                 refreshing = false
             }
@@ -185,7 +192,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         series[key] = current.copy(loading = true, error = null)
         return viewModelScope.launch {
             series[key] = try {
-                val src = app.sources.get(source) ?: throw SourceException("Source introuvable : ajoute-la dans Explorer")
+                val src = app.sources.get(source) ?: throw SourceException("Source introuvable : ajoute-la dans Paramètres › Sources")
                 val details = src.details(slug)
                 app.cache.save(source, details)
                 // The library keeps the title and cover up to date.
