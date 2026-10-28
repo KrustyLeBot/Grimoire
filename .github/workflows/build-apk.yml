@@ -35,7 +35,8 @@ jobs:
           KEYSTORE_B64: ${{ secrets.GRIMOIRE_KEYSTORE_BASE64 }}
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/grimoire.jks"
+            # Tolerates line breaks, CRLF and certutil's BEGIN/END lines around the base64.
+            printf '%s' "$KEYSTORE_B64" | grep -v -- '-----' | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/grimoire.jks"
             echo "signed=true" >> "$GITHUB_OUTPUT"
             echo "GRIMOIRE_KEYSTORE=$RUNNER_TEMP/grimoire.jks" >> "$GITHUB_ENV"
           else
