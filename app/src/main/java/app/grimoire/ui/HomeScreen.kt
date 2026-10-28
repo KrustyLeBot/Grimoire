@@ -1,5 +1,7 @@
 package app.grimoire.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -13,23 +15,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ErrorOutline
-import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -39,12 +39,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -52,20 +49,18 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.grimoire.Feed
+import app.grimoire.Lister
 import app.grimoire.MainViewModel
 import app.grimoire.Screen
 import app.grimoire.Tab as HomeTab
@@ -95,8 +90,8 @@ fun HomeScreen(vm: MainViewModel) {
             }
             when (vm.tab) {
                 HomeTab.LIBRARY -> LibraryTab(vm, online)
-                HomeTab.EXPLORE -> ExploreTab(vm, online)
-                HomeTab.HISTORY -> HistoryTab(vm, online)
+                HomeTab.DISCOVER -> DiscoverTab(vm, online)
+                HomeTab.SEARCH -> SearchTab(vm, online)
             }
         }
     }
@@ -158,7 +153,7 @@ private fun LibraryTab(vm: MainViewModel, online: Boolean) {
         }
         if (items.isEmpty()) {
             Empty(
-                if (data.library.isEmpty()) "Ta bibliothèque est vide.\nTrouve une série dans Explorer : elle arrive ici dès que tu la lis."
+                if (data.library.isEmpty()) "Ta bibliothèque est vide.\nTrouve une série dans Découvrir ou Recherche : elle arrive ici dès que tu la lis."
                 else "Rien dans « ${filter.label} ».",
             )
             return
@@ -185,92 +180,111 @@ private fun LibraryTab(vm: MainViewModel, online: Boolean) {
 }
 
 @Composable
-private fun ExploreTab(vm: MainViewModel, online: Boolean) {
+private fun DiscoverTab(vm: MainViewModel, online: Boolean) {
     val data by vm.data.collectAsState()
-    var query by rememberSaveable { mutableStateOf(vm.globalQuery) }
+    val enabled = data.sources.filter { it.enabled }
+    LaunchedEffect(online, enabled.map { it.id }) {
+        val l = vm.discover.listing
+        if (online && enabled.isNotEmpty() && (l.items.isEmpty() || vm.discover.sources.isEmpty()) && !l.loading) vm.discover()
+    }
     Column(Modifier.fillMaxSize()) {
-        OutlinedTextField(
-            query, { query = it },
-            placeholder = { Text("Rechercher dans toutes les sources") },
-            leadingIcon = { Icon(Icons.Default.Search, null) },
-            singleLine = true, enabled = online,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { vm.searchAll(query) }),
-            modifier = Modifier.fillMaxWidth().padding(12.dp),
-        )
-        if (vm.globalQuery.isNotBlank() && query == vm.globalQuery) {
-            LazyColumn(Modifier.fillMaxSize()) {
-                vm.globalResults.forEach { (sourceId, result) ->
-                    val name = data.sources.firstOrNull { it.id == sourceId }?.name ?: sourceId
-                    item(key = "h-$sourceId") {
-                        Text(name, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
-                    }
-                    item(key = "r-$sourceId") {
-                        when {
-                            result.loading -> Box(Modifier.fillMaxWidth().height(120.dp), Alignment.Center) { CircularProgressIndicator() }
-                            result.error != null -> Text(result.error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp))
-                            result.items.isEmpty() -> Text("Aucun résultat", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            else -> LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                items(result.items, key = { it.slug }) { s ->
-                                    Box(Modifier.width(110.dp)) {
-                                        SeriesCell(s.title, s.cover, sourceId, onClick = { vm.open(Screen.Series(sourceId, s.slug, s.title, s.cover)) })
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            return
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Feed.entries.forEach { f -> FilterChip(vm.feed == f, { vm.discover(feed = f) }, { Text(f.label) }, enabled = online) }
         }
-        Text("Sources", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, bottom = 4.dp))
-        val enabled = data.sources.filter { it.enabled }
-        if (enabled.isEmpty()) Empty("Aucune source active.\nAjoute-en une dans Paramètres › Sources.")
-        enabled.forEach { s ->
-            ListItem(
-                headlineContent = { Text(s.name, fontWeight = FontWeight.SemiBold) },
-                supportingContent = { Text(s.baseUrl.removePrefix("https://")) },
-                leadingContent = { Icon(Icons.Default.Extension, null, tint = MaterialTheme.colorScheme.primary) },
-                trailingContent = { Icon(Icons.Default.ChevronRight, null) },
-                modifier = Modifier.padding(horizontal = 4.dp).then(
-                    if (online) Modifier.tappable { vm.browse(s.id, Feed.POPULAR, ""); vm.open(Screen.Browse(s.id)) } else Modifier,
-                ),
-            )
+        SourceChips(vm, vm.discoverSource, online) { vm.discover(source = it) }
+        when {
+            enabled.isEmpty() -> NoSource(vm)
+            !online -> Empty("Hors ligne : Découvrir a besoin d'internet.\nTa bibliothèque montre ce qui est téléchargé.")
+            else -> ListingGrid(vm, vm.discover, showSource = vm.discoverSource == null && enabled.size > 1, emptyText = "Rien pour l'instant.")
         }
-        TextButton(onClick = { vm.open(Screen.Sources) }, modifier = Modifier.padding(horizontal = 8.dp)) { Text("Gérer les sources") }
     }
 }
 
 @Composable
-private fun HistoryTab(vm: MainViewModel, online: Boolean) {
+private fun SearchTab(vm: MainViewModel, online: Boolean) {
     val data by vm.data.collectAsState()
-    val done by vm.app.downloads.done.collectAsState()
-    val entries = data.progress.mapNotNull { (key, p) -> p.last?.let { key to it } }.sortedByDescending { it.second.at }
-    if (entries.isEmpty()) {
-        Empty("Les chapitres que tu lis apparaîtront ici.")
-        return
+    val enabled = data.sources.filter { it.enabled }
+    var text by rememberSaveable { mutableStateOf(vm.query) }
+    val scopeName = vm.searchSource?.let { id -> enabled.firstOrNull { it.id == id }?.name }
+    Column(Modifier.fillMaxSize()) {
+        OutlinedTextField(
+            text, { text = it },
+            placeholder = { Text(if (scopeName != null) "Rechercher dans $scopeName" else "Rechercher dans toutes les sources") },
+            leadingIcon = { Icon(Icons.Default.Search, null) },
+            trailingIcon = {
+                if (text.isNotEmpty()) IconButton(onClick = { text = ""; vm.search("") }) { Icon(Icons.Default.Close, "Effacer") }
+            },
+            singleLine = true, enabled = online,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { vm.search(text) }),
+            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 4.dp),
+        )
+        SourceChips(vm, vm.searchSource, online) { vm.search(text, it) }
+        when {
+            enabled.isEmpty() -> NoSource(vm)
+            !online -> Empty("Hors ligne : la recherche a besoin d'internet.")
+            vm.query.isBlank() -> Empty("Tape un titre puis lance la recherche.")
+            else -> ListingGrid(vm, vm.search, showSource = vm.searchSource == null && enabled.size > 1, emptyText = "Aucun résultat pour « ${vm.query} ».")
+        }
     }
-    LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
-        var day = ""
-        entries.forEach { (key, last) ->
-            val label = relativeDay(last.at)
-            if (label != day) {
-                day = label
-                item(key = "d-$key") { Text(label, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)) }
-            }
-            val source = key.substringBefore(':')
-            val slug = key.substringAfter(':')
-            val item = data.library.firstOrNull { it.key == key }
-            val title = item?.title ?: vm.app.cache.load(source, slug)?.title ?: slug
-            val cover = item?.cover
-            val available = online || "${seriesKey(source, slug.replace('/', '_'))}:${last.chapter}" in done
-            item(key = key) {
-                ListItem(
-                    headlineContent = { Text(title, maxLines = 1) },
-                    supportingContent = { Text("${last.chapterName} · page ${last.page + 1}${if (last.pages > 0) " / ${last.pages}" else ""}") },
-                    leadingContent = { Cover(cover, source, Modifier.size(48.dp, 64.dp)) },
-                    modifier = if (available) Modifier.tappable { vm.open(Screen.Reader(source, slug, last.chapter)) } else Modifier.alpha(0.38f),
-                )
+}
+
+/** "Toutes" then one chip per enabled source; hidden with a single source. */
+@Composable
+private fun SourceChips(vm: MainViewModel, selected: String?, online: Boolean, onPick: (String?) -> Unit) {
+    val data by vm.data.collectAsState()
+    val enabled = data.sources.filter { it.enabled }
+    if (enabled.size < 2) return
+    LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item { FilterChip(selected == null, { onPick(null) }, { Text("Toutes les sources") }, enabled = online) }
+        items(enabled, key = { it.id }) { s -> FilterChip(selected == s.id, { onPick(s.id) }, { Text(s.name) }, enabled = online) }
+    }
+}
+
+@Composable
+private fun NoSource(vm: MainViewModel) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Empty("Aucune source active.")
+        TextButton(onClick = { vm.open(Screen.Sources) }) { Text("Gérer les sources") }
+    }
+}
+
+/** Infinite grid of a [Lister]; a failing source shows its error under the rest, with a retry. */
+@Composable
+private fun ListingGrid(vm: MainViewModel, lister: Lister, showSource: Boolean, emptyText: String) {
+    val data by vm.data.collectAsState()
+    val listing = lister.listing
+    val grid = rememberLazyGridState()
+    val nearEnd by remember {
+        derivedStateOf { grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index?.let { it >= grid.layoutInfo.totalItemsCount - 6 } ?: false }
+    }
+    LaunchedEffect(nearEnd, listing.items.size) { if (nearEnd) lister.more() }
+    LazyVerticalGrid(
+        state = grid,
+        columns = GridCells.Adaptive(110.dp),
+        contentPadding = PaddingValues(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        items(listing.items, key = { it.key }) { f ->
+            SeriesCell(
+                f.series.title, f.series.cover, f.source,
+                subtitle = if (showSource) data.sources.firstOrNull { it.id == f.source }?.name else null,
+                onClick = { vm.open(Screen.Series(f.source, f.series.slug, f.series.title, f.series.cover)) },
+            )
+        }
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                listing.errors.forEach { (id, e) ->
+                    val name = data.sources.firstOrNull { it.id == id }?.name ?: id
+                    Text("$name : $e", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+                }
+                when {
+                    listing.loading -> CircularProgressIndicator()
+                    listing.errors.isNotEmpty() -> TextButton(onClick = { lister.retry() }) { Text("Réessayer") }
+                    listing.items.isEmpty() && !lister.hasNext -> Text(emptyText, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }

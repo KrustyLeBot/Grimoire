@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import app.grimoire.GrimoireApp
 import app.grimoire.R
 import app.grimoire.source.ChapterContent
@@ -29,8 +30,8 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
         val id = inputData.getString("chapter") ?: return Result.failure()
         val name = inputData.getString("name").orEmpty()
         val key = Downloads.key(source, slug, id)
-        val src = app.sources.get(source) ?: return Result.failure().also { app.downloads.finished(key, false) }
-        setForeground(foreground(name, 0f))
+        val src = app.sources.get(source) ?: return Result.failure()
+        notify(name, 0f)
         val dir = app.downloads.dir(source, slug, id)
         return try {
             val content = src.content(slug, ChapterInfo(id, name, inputData.getFloat("number", 0f), 0))
@@ -40,19 +41,32 @@ class DownloadWorker(context: Context, params: WorkerParameters) : CoroutineWork
             urls.forEachIndexed { i, url ->
                 fetch(url, File(dir, "%04d.%s".format(i + 1, extension(url))), src.imageHeaders())
                 val p = (i + 1f) / urls.size
-                app.downloads.progress(key, p)
-                setForeground(foreground(name, p))
+                setProgress(workDataOf(Downloads.PROGRESS to p))
+                notify(name, p)
             }
             app.downloads.writeMeta(dir, name, urls.size)
-            app.downloads.finished(key, true)
+            app.downloads.finished(key)
             Result.success()
         } catch (e: CancellationException) {
             dir.deleteRecursively()
-            app.downloads.finished(key, false)
             throw e
         } catch (e: Exception) {
             dir.deleteRecursively()
-            if (runAttemptCount < 2) Result.retry() else Result.failure().also { app.downloads.finished(key, false) }
+            if (runAttemptCount < 3) Result.retry() else Result.failure()
+        }
+    }
+
+    /**
+     * Android refuses to start a foreground service while the app is in the background (several
+     * chapters queued, the screen turned off while reading…): the download then goes on without
+     * its notification instead of failing.
+     */
+    private suspend fun notify(name: String, progress: Float) {
+        try {
+            setForeground(foreground(name, progress))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
         }
     }
 

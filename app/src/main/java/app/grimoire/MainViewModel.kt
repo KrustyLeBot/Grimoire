@@ -1,10 +1,10 @@
 package app.grimoire
 
-import android.app.Application
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import android.app.Application
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.grimoire.data.LibraryItem
@@ -14,8 +14,6 @@ import app.grimoire.data.seriesKey
 import app.grimoire.source.Catalog
 import app.grimoire.source.ChapterInfo
 import app.grimoire.source.SeriesDetails
-import app.grimoire.source.SeriesPage
-import app.grimoire.source.SeriesSummary
 import app.grimoire.source.SourceConfig
 import app.grimoire.source.SourceException
 import app.grimoire.suite.SuiteUpdates
@@ -24,40 +22,28 @@ import app.grimoire.sync.SyncState
 import app.grimoire.sync.SynchrotronClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 sealed interface Screen {
     data object Home : Screen
-    data class Browse(val source: String) : Screen
     data class Series(val source: String, val slug: String, val title: String, val cover: String?) : Screen
     data class Reader(val source: String, val slug: String, val chapter: String) : Screen
     data object Sources : Screen
     data class SourceEdit(val id: String) : Screen
     data class Login(val source: String) : Screen
     data object Settings : Screen
+    data object History : Screen
 }
 
 /** The "Lecture" section's tabs. Other sections (Reddit…) will sit next to it. */
-enum class Tab(val label: String) { LIBRARY("Bibliothèque"), EXPLORE("Explorer"), HISTORY("Historique") }
+enum class Tab(val label: String) { LIBRARY("Bibliothèque"), DISCOVER("Découvrir"), SEARCH("Recherche") }
 
-enum class Feed(val label: String) { POPULAR("Populaires"), LATEST("Récents"), SEARCH("Recherche") }
+enum class Feed(val label: String) { LATEST("Récents"), POPULAR("Populaires") }
 
 /** A series page: the details (from the cache first, then the site), and how its loading went. */
 data class SeriesView(val details: SeriesDetails? = null, val loading: Boolean = false, val error: String? = null)
 
-/** One source's list in Browse. */
-data class BrowseView(
-    val feed: Feed = Feed.POPULAR,
-    val query: String = "",
-    val items: List<SeriesSummary> = emptyList(),
-    val page: Int = 0,
-    val hasNext: Boolean = true,
-    val loading: Boolean = false,
-    val error: String? = null,
-)
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     val app = application as GrimoireApp
@@ -244,63 +230,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         open(Screen.Reader(source, details.slug, chapter.id))
     }
 
-    // ---- browse & search ----
-    val browse = mutableStateMapOf<String, BrowseView>()
+    // ---- discover & search ----
 
-    fun browse(source: String, feed: Feed = browse[source]?.feed ?: Feed.POPULAR, query: String = browse[source]?.query.orEmpty()) {
-        browse[source] = BrowseView(feed = feed, query = query)
-        more(source)
+    /** Enabled sources, or the one picked. */
+    private fun sourcesFor(source: String?) = source?.let { listOf(it) } ?: app.sources.enabled().map { it.config.id }
+
+    var feed by mutableStateOf(Feed.LATEST)
+        private set
+    /** Null: every enabled source. */
+    var discoverSource by mutableStateOf<String?>(null)
+        private set
+    val discover = Lister(viewModelScope, app.sources::get, ::describe) { src, page ->
+        if (feed == Feed.LATEST) src.latest(page) else src.popular(page)
     }
 
-    fun more(source: String) {
-        val v = browse[source] ?: BrowseView().also { browse[source] = it }
-        if (v.loading || !v.hasNext || (v.feed == Feed.SEARCH && v.query.isBlank())) return
-        browse[source] = v.copy(loading = true, error = null)
-        viewModelScope.launch {
-            val src = app.sources.get(source) ?: return@launch
-            val page = v.page + 1
-            browse[source] = try {
-                val result: SeriesPage = when (v.feed) {
-                    Feed.POPULAR -> src.popular(page)
-                    Feed.LATEST -> src.latest(page)
-                    Feed.SEARCH -> src.search(v.query, page)
-                }
-                val now = browse[source] ?: v
-                if (now.feed != v.feed || now.query != v.query) return@launch
-                now.copy(items = (now.items + result.items).distinctBy { it.slug }, page = page, hasNext = result.hasNext && result.items.isNotEmpty(), loading = false)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                (browse[source] ?: v).copy(loading = false, error = describe(e))
-            }
-        }
+    fun discover(feed: Feed = this.feed, source: String? = discoverSource) {
+        this.feed = feed
+        discoverSource = source
+        discover.reset(sourcesFor(source))
     }
 
-    var globalQuery by mutableStateOf("")
-    /** Results of the search across every enabled source, by source id. */
-    val globalResults = mutableStateMapOf<String, BrowseView>()
-    private var globalJob: Job? = null
+    var query by mutableStateOf("")
+        private set
+    var searchSource by mutableStateOf<String?>(null)
+        private set
+    val search = Lister(viewModelScope, app.sources::get, ::describe) { src, page -> src.search(query, page) }
 
-    fun searchAll(query: String) {
-        globalQuery = query
-        globalJob?.cancel()
-        globalResults.clear()
-        if (query.isBlank()) return
-        globalJob = viewModelScope.launch {
-            app.sources.enabled().map { src ->
-                globalResults[src.config.id] = BrowseView(feed = Feed.SEARCH, query = query, loading = true)
-                async {
-                    globalResults[src.config.id] = try {
-                        val r = src.search(query, 1)
-                        BrowseView(Feed.SEARCH, query, r.items, 1, r.hasNext)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        BrowseView(Feed.SEARCH, query, error = describe(e))
-                    }
-                }
-            }.awaitAll()
-        }
+    fun search(query: String = this.query, source: String? = searchSource) {
+        this.query = query.trim()
+        searchSource = source
+        if (this.query.isBlank()) search.clear() else search.reset(sourcesFor(source))
     }
 
     // ---- sources ----

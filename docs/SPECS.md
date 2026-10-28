@@ -20,13 +20,14 @@ the app and stored in a synced file. A new source type comes with an app update.
 
 | Feature | Behaviour |
 |---|---|
-| Sources | "Explorer" lists the added sources. "Ajouter une source" picks a type from the built-in catalog; each source has a name, a base URL (sites change domain), options, a WebView login when the site has accounts, and "Tester". Sources can be disabled or removed. |
-| Browse | Per source: Populaires, Récents, Recherche. Covers in a grid, infinite scroll. |
-| Search | A search field in Explorer searches every enabled source at once (results grouped by source). |
+| Navigation | Tabs Bibliothèque, Découvrir, Recherche. Paramètres (gear) holds Sources, Historique and the settings. |
+| Sources | Paramètres › Sources lists the added sources. "Ajouter une source" picks a type from the built-in catalog; each source has a name, a base URL (sites change domain), options, a WebView login when the site has accounts, and "Tester". Sources can be disabled or removed. |
+| Découvrir | Récents or Populaires across every enabled source (pages of each source interleaved) or one source picked with a chip. Covers in a grid, infinite scroll; a failing source shows its error without hiding the others. |
+| Search | Searches every enabled source at once, or the one picked; same grid. |
 | Series page | Cover, title, author/artist, status, genres, description, "Lire"/"Continuer", add/remove from library, chapter list. Chapters already read are dimmed. |
 | Read marks | A chapter is marked read automatically when its last page is reached. Manual: per chapter, "jusqu'ici", or the whole series (read / unread). |
 | Library | Series in the library, most recently read first, with the unread count and the last chapter read. Filters: En cours (default), Tout, Terminés. A series is added when reading starts; it can also be added or removed by hand. |
-| History | Last chapters read, grouped by day; tap to resume at the saved page. |
+| History | In Paramètres. Last chapters read, grouped by day; tap to resume at the saved page. |
 | Reader | Image chapters: "Défilement" (vertical, webtoons) or "Pages" (horizontal, manga, optional right-to-left). Pinch zoom, tap the middle for the menu (chapter, page slider, mode), next/previous chapter. Position saved per chapter. Text chapters: paragraphs with a font size setting. Default mode per series: guessed from the source (webtoon → défilement), changeable and remembered. |
 | Downloads | Per chapter, "à partir d'ici", or the whole series. Background job with a notification; Wi-Fi only option. Stored in the app's private storage, never synced. |
 | Offline | No separate tab: the library shows everything, and what cannot be read offline (series or chapters without a download) is greyed out and not tappable. Series pages and chapter lists open from the last saved copy. |
@@ -123,7 +124,7 @@ app/src/main/java/app/grimoire/
   source/     Source model, catalog, Http (client, pacing, cookies), NextJs, poseidon/PoseidonScans
   download/   Downloads (state), DownloadWorker
   reader/     ReaderScreen (images: pages / scroll, zoom), TextReader, ReaderViewModel
-  ui/         Library, Explorer, SourceBrowse, Series, History, Sources, Settings, theme
+  ui/         Home (Bibliothèque, Découvrir, Recherche), Series, History, Sources, Settings, theme
   suite/      the suite kit (copy)
   sync/       SynchrotronClient (copy)
 ```

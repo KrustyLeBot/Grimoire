@@ -23,9 +23,9 @@ import app.grimoire.data.seriesKey
 import app.grimoire.reader.ReaderModel
 import app.grimoire.reader.ReaderScreen
 import app.grimoire.suite.SuiteTopBar
-import app.grimoire.ui.BrowseScreen
 import app.grimoire.ui.Empty
 import app.grimoire.ui.GrimoireTheme
+import app.grimoire.ui.HistoryScreen
 import app.grimoire.ui.HomeScreen
 import app.grimoire.ui.LoginScreen
 import app.grimoire.ui.SeriesScreen
@@ -46,13 +46,13 @@ class MainActivity : ComponentActivity() {
                 BackHandler(enabled = vm.stack.size > 1) { vm.back() }
                 when (val s = vm.screen) {
                     Screen.Home -> HomeScreen(vm)
-                    is Screen.Browse -> BrowseScreen(vm, s.source)
                     is Screen.Series -> SeriesScreen(vm, s)
                     is Screen.Reader -> Reader(s)
                     Screen.Sources -> SourcesScreen(vm)
                     is Screen.SourceEdit -> SourceEditScreen(vm, s.id)
                     is Screen.Login -> LoginScreen(vm, s.source)
                     Screen.Settings -> SettingsScreen(vm)
+                    Screen.History -> HistoryScreen(vm)
                 }
             }
         }

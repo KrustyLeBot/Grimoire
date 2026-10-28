@@ -1,5 +1,7 @@
 package app.grimoire.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -47,12 +49,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -114,18 +121,25 @@ fun SeriesScreen(vm: MainViewModel, s: Screen.Series) {
                 SelectionBar(
                     count = selected.size,
                     onClose = { selected = emptySet() },
+                    onAll = { selected = details?.chapters.orEmpty().filterNot { it.locked }.map { it.id }.toSet() },
+                )
+            }
+        },
+        bottomBar = {
+            if (selected.isNotEmpty()) {
+                SelectionActions(
                     onRead = { vm.markRead(s.source, s.slug, selected); selected = emptySet() },
-                    onUnread = { vm.markUnread(s.source, s.slug, selected); selected = emptySet() },
-                    onDownload = {
-                        details?.let { d -> vm.download(s.source, s.slug, d.chapters.filter { it.id in selected }.sortedBy { it.number }) }
-                        selected = emptySet()
-                    },
                     onReadBelow = {
-                        // "Jusqu'ici": every chapter up to the newest one selected.
+                        // "Lus jusqu'ici": every chapter up to the newest one selected.
                         details?.let { d ->
                             val top = d.chapters.filter { it.id in selected }.maxOf { it.number }
                             vm.markRead(s.source, s.slug, d.chapters.filter { it.number <= top }.map { it.id })
                         }
+                        selected = emptySet()
+                    },
+                    onUnread = { vm.markUnread(s.source, s.slug, selected); selected = emptySet() },
+                    onDownload = {
+                        details?.let { d -> vm.download(s.source, s.slug, d.chapters.filter { it.id in selected }.sortedBy { it.number }) }
                         selected = emptySet()
                     },
                     online = online,
@@ -191,6 +205,7 @@ fun SeriesScreen(vm: MainViewModel, s: Screen.Series) {
                             )
                         }
                         when {
+                            pct != null && pct <= 0f -> CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                             pct != null -> CircularProgressIndicator(progress = { pct }, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                             isDone -> Icon(Icons.Default.DownloadDone, "Téléchargé", tint = MaterialTheme.colorScheme.primary)
                             !c.locked && online -> IconButton(onClick = { vm.download(s.source, s.slug, listOf(c)) }) { Icon(Icons.Default.Download, "Télécharger") }
@@ -243,24 +258,38 @@ private fun Header(vm: MainViewModel, s: Screen.Series, details: app.grimoire.so
 }
 
 @Composable
-private fun SelectionBar(
-    count: Int,
-    onClose: () -> Unit,
-    onRead: () -> Unit,
-    onUnread: () -> Unit,
-    onDownload: () -> Unit,
-    onReadBelow: () -> Unit,
-    online: Boolean,
-) {
+private fun SelectionBar(count: Int, onClose: () -> Unit, onAll: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.secondaryContainer).statusBarsPadding().padding(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(onClick = onClose) { Icon(Icons.Default.Close, "Annuler la sélection") }
-        Text("$count", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-        IconButton(onClick = onRead) { Icon(Icons.Default.Done, "Marquer comme lu") }
-        IconButton(onClick = onReadBelow) { Icon(Icons.Default.DoneAll, "Marquer lus jusqu'ici") }
-        IconButton(onClick = onUnread) { Icon(Icons.Default.RemoveDone, "Marquer comme non lu") }
-        IconButton(onClick = onDownload, enabled = online) { Icon(Icons.Default.Download, "Télécharger") }
+        Text(if (count == 1) "1 chapitre" else "$count chapitres", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        TextButton(onClick = onAll) { Text("Tout sélectionner") }
+    }
+}
+
+/** What to do with the selection: icons with their name below, so the two "read" marks are clear. */
+@Composable
+private fun SelectionActions(onRead: () -> Unit, onReadBelow: () -> Unit, onUnread: () -> Unit, onDownload: () -> Unit, online: Boolean) {
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer) {
+        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(vertical = 6.dp)) {
+            Action(Icons.Default.Done, "Lu", onRead)
+            Action(Icons.Default.DoneAll, "Lus jusqu'ici", onReadBelow)
+            Action(Icons.Default.RemoveDone, "Non lu", onUnread)
+            Action(Icons.Default.Download, "Télécharger", onDownload, enabled = online)
+        }
+    }
+}
+
+@Composable
+private fun RowScope.Action(icon: ImageVector, label: String, onClick: () -> Unit, enabled: Boolean = true) {
+    Column(
+        Modifier.weight(1f).clip(MaterialTheme.shapes.medium).clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 6.dp).alpha(if (enabled) 1f else 0.38f),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(icon, null)
+        Text(label, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, maxLines = 1)
     }
 }

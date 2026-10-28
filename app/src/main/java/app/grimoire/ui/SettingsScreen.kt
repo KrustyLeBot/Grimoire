@@ -1,5 +1,7 @@
 package app.grimoire.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,12 +16,10 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -52,6 +52,13 @@ fun SettingsScreen(vm: MainViewModel) {
                 Text("${vm.data.value.sources.size} source(s)", fontWeight = FontWeight.SemiBold)
                 SettingsHint("Ajouter, régler l'adresse d'un site, se connecter, activer les chapitres premium…")
                 OutlinedButton(onClick = { vm.open(Screen.Sources) }) { Text("Gérer les sources") }
+            }
+
+            SectionTitle("Historique")
+            SettingsCard {
+                Text("${vm.data.value.progress.values.count { it.last != null }} série(s) commencée(s)", fontWeight = FontWeight.SemiBold)
+                SettingsHint("Les derniers chapitres lus, par jour : reprends l'un d'eux où tu l'avais laissé.")
+                OutlinedButton(onClick = { vm.open(Screen.History) }) { Text("Voir l'historique") }
             }
 
             SectionTitle("Lecture")

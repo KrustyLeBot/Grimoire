@@ -85,7 +85,11 @@ class PoseidonScans(override val config: SourceConfig, private val http: Http) :
     }
 
     override suspend fun content(slug: String, chapter: ChapterInfo): ChapterContent {
-        val data = NextJs.find(http.get("${seriesUrl(slug)}/chapter/${chapter.id}", rsc)) { it.containsKey("initialData") && it.containsKey("currentChapter") }
+        val url = "${seriesUrl(slug)}/chapter/${chapter.id}"
+        val wanted: (JsonObject) -> Boolean = { it.containsKey("initialData") && it.containsKey("currentChapter") }
+        // Like the chapter list, the stream can come back partial: one retry past the cache.
+        val data = NextJs.find(http.get(url, rsc), wanted)
+            ?: NextJs.find(http.get(url + "?_=" + System.currentTimeMillis(), rsc), wanted)
             ?: throw SourceException("Chapitre illisible : le site a peut-être changé")
         val current = data.obj("currentChapter")
         val locked = current != null && current.bool("isPremium") == true && PoseidonParser.beforeFreeDate(current.str("premiumUntil"))

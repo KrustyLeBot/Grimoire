@@ -27,7 +27,7 @@ class GrimoireApp : Application(), SingletonImageLoader.Factory {
     val http by lazy { Http() }
     val store by lazy { Store(this) }
     val cache by lazy { SeriesCache(this) }
-    val downloads by lazy { Downloads(this) }
+    val downloads by lazy { Downloads(this, scope) }
     val sources by lazy { Sources(store, http) }
     val updater by lazy { SuiteUpdater(this, "KrustyLeBot/Grimoire", "$packageName.fileprovider") }
     val settings by lazy { Settings(this) }

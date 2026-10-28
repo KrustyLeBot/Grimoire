@@ -11,8 +11,9 @@ same self-update, same Proton Drive sync through Synchrotron.
 
 - **Bibliothèque**: series being read, with unread counts and the next chapter to read. Offline,
   only what is downloaded can be opened; the rest is greyed out.
-- **Explorer**: popular / latest / search per source, plus a search across every enabled source.
-- **Historique**: last chapters read, by day.
+- **Découvrir**: latest or popular series across every enabled source (or one), interleaved.
+- **Recherche**: search everywhere, or in one source.
+- **Historique** (in Paramètres): last chapters read, by day.
 - **Lecteur**: vertical scroll (webtoons) or pages (manga, optional right-to-left), zoom, keeps the
   page, marks a chapter read when its last page is reached. Text sources get a text reader.
 - Manual marking: one chapter, a selection, everything up to a chapter, or the whole series.
