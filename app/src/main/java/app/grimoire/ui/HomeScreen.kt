@@ -59,6 +59,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import app.grimoire.Feed
 import app.grimoire.Lister
 import app.grimoire.MainViewModel
@@ -85,7 +89,11 @@ fun HomeScreen(vm: MainViewModel) {
             Banners(vm, online, storeError)
             TabRow(selectedTabIndex = vm.tab.ordinal) {
                 HomeTab.entries.forEach { t ->
-                    Tab(selected = vm.tab == t, onClick = { vm.tab = t }, text = { Text(t.label) })
+                    // One line even on narrow screens or with a large system font.
+                    Tab(
+                        selected = vm.tab == t, onClick = { vm.tab = t },
+                        text = { Text(t.label, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, letterSpacing = 0.sp)) },
+                    )
                 }
             }
             when (vm.tab) {
@@ -145,10 +153,11 @@ private fun LibraryTab(vm: MainViewModel, online: Boolean) {
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            LibraryFilter.entries.forEach { f ->
-                FilterChip(filter == f, { filter = f }, { Text(f.label) }, modifier = Modifier.padding(end = 8.dp))
+            Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                LibraryFilter.entries.forEach { f ->
+                    FilterChip(filter == f, { filter = f }, { Text(f.label, maxLines = 1, softWrap = false) })
+                }
             }
-            Spacer(Modifier.weight(1f))
             if (vm.refreshing) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
             else IconButton(onClick = { vm.refreshLibrary() }, enabled = online) { Icon(Icons.Default.Refresh, "Chercher les nouveaux chapitres") }
         }
