@@ -182,6 +182,8 @@ fun BookReaderScreen(model: BookReaderModel, onBack: () -> Unit) {
 private fun BookView(model: BookReaderModel, epub: Epub, page: PageColors, onTap: () -> Unit) {
     val bridge = remember(model) { Bridge(model) }
     bridge.onTap = onTap
+    // Read by the WebView's client, created once: the colours must follow the chosen theme.
+    bridge.page = page
     AndroidView(
         // Not padded by the system bars: they come and go with the menu, and a resize would
         // shift the pages.
@@ -204,7 +206,7 @@ private fun BookView(model: BookReaderModel, epub: Epub, page: PageColors, onTap
                         val bytes = runCatching { epub.open(path)?.use { it.readBytes() } }.getOrNull() ?: return empty()
                         if (path !in epub.spine) return WebResourceResponse(mime(path), null, ByteArrayInputStream(bytes))
                         val source = Chapter.decode(bytes)
-                        val html = Chapter.render(source, css(model, page), script(model, path, epub))
+                        val html = Chapter.render(source, css(model, bridge.page), script(model, path, epub))
                         val type = if (Chapter.keepsMarkup(source)) mime(path) else "text/html"
                         return WebResourceResponse(type, "utf-8", ByteArrayInputStream(html.toByteArray()))
                     }
@@ -235,6 +237,7 @@ internal class Bridge(private val model: BookReaderModel) {
     private val main = Handler(Looper.getMainLooper())
     var view: WebView? = null
     var onTap: () -> Unit = {}
+    @Volatile var page: PageColors = PageColors.LIGHT
 
     @JavascriptInterface
     fun position(fraction: Float) {
