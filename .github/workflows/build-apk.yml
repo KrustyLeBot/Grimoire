@@ -1,3 +1,4 @@
+# Do not rename this file: GitHub numbers runs per workflow file and the run number is the build number of both apps.
 name: Build APK
 
 on:
@@ -12,13 +13,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  apk:
     runs-on: ubuntu-latest
     # The release key only exists in the `release` environment, restricted to main.
     # Pull requests never get it, so they can never produce a signed APK.
     environment: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'release' || null }}
-    permissions:
-      contents: write
+    outputs:
+      signed: ${{ steps.key.outputs.signed }}
     steps:
       - uses: actions/checkout@v4
 
@@ -51,6 +52,10 @@ jobs:
           GRIMOIRE_KEY_PASSWORD: ${{ secrets.GRIMOIRE_KEY_PASSWORD }}
         run: ./gradlew --no-daemon :app:testDebugUnitTest :app:assembleRelease
 
+      - name: Remove signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/grimoire.jks"
+
       - name: Refuse an unsigned release
         if: steps.key.outputs.signed != 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: |
@@ -64,16 +69,66 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: steps.key.outputs.signed == 'true'
         with:
-          name: grimoire-build-${{ github.run_number }}
+          name: grimoire-android
           path: grimoire.apk
+          retention-days: 7
 
-      - name: Publish rolling release `latest`
-        if: steps.key.outputs.signed == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+  # Windows app: tests, then a single-file exe (every event; published only with the signed APK).
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: windows/requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller pytest
+      - name: Stamp the build number (same as the Android version code)
+        shell: bash
+        run: echo "BUILD = ${{ github.run_number }}" > grimoire_win/_version.py
+      - name: Tests
         env:
-          GH_TOKEN: ${{ github.token }}
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest tests -q
+      - name: Build the exe
+        run: >
+          pyinstaller --noconfirm --onefile --windowed --name Grimoire
+          --icon grimoire_win/assets/icon.ico
+          --add-data "grimoire_win/assets;grimoire_win/assets"
+          --exclude-module PySide6.Qt3DCore --exclude-module PySide6.Qt3DRender --exclude-module PySide6.QtQuick3D
+          --exclude-module PySide6.QtMultimedia --exclude-module PySide6.QtCharts --exclude-module PySide6.QtDataVisualization
+          --exclude-module PySide6.QtGraphs --exclude-module PySide6.QtBluetooth --exclude-module PySide6.QtSensors
+          --exclude-module tkinter
+          run.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: grimoire-windows
+          path: windows/dist/Grimoire.exe
+          retention-days: 7
+
+  # One "latest" release carrying both apps, published only when both builds succeeded.
+  release:
+    needs: [apk, windows]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.apk.outputs.signed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Publish rolling release `latest`
         run: |
           gh release delete latest --cleanup-tag --yes || true
-          gh release create latest grimoire.apk \
+          gh release create latest dist/grimoire-android/grimoire.apk dist/grimoire-windows/Grimoire.exe \
             --target "$GITHUB_SHA" \
             --title "Grimoire build ${{ github.run_number }}" \
             --notes "Automatic build ${{ github.run_number }} of ${GITHUB_SHA::7}." \

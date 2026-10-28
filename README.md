@@ -48,8 +48,20 @@ of configured instances can exist (another address if the site moves, options, l
 Poseidon Scans needs no account; premium chapters need a premium login, done in a WebView from
 the source's settings. Protocol details: [docs/SPECS.md](docs/SPECS.md).
 
+## Windows app
+
+`windows/`: the same app for the computer (Python, PySide6 with Qt WebEngine, one `Grimoire.exe`),
+with the same features and the same files. Pick the Grimoire folder that the Proton Drive client
+syncs (`Documents/Grimoire` on the phone): library, progress, sources and web searches are shared;
+the file is re-read whenever Proton brings another device's version. Downloads, EPUB files and
+caches stay in `%LOCALAPPDATA%\Grimoire`. EPUBs open with "Ouvrir avec", by drag and drop or with
+« + »; a second launch hands its file to the open window. Self-update from the same `latest`
+release (the `.exe` asset). Tests: `cd windows && python -m pytest tests -q`.
+
 ## Build & release
 
-CI only (`.github/workflows/build-apk.yml`): tests, signed APK, rolling `latest` release. Signing
+CI only (`.github/workflows/build-apk.yml`): tests, signed APK, Windows exe, rolling `latest`
+release carrying both. Signing
 key and secrets: [docs/RELEASE.md](docs/RELEASE.md). Install:
-<https://github.com/KrustyLeBot/Grimoire/releases/download/latest/grimoire.apk>
+<https://github.com/KrustyLeBot/Grimoire/releases/download/latest/grimoire.apk> (Android),
+<https://github.com/KrustyLeBot/Grimoire/releases/download/latest/Grimoire.exe> (Windows)

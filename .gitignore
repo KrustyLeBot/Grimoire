@@ -7,3 +7,10 @@ local.properties
 *.keystore
 *.b64
 .DS_Store
+
+# Windows app
+windows/build/
+windows/dist/
+windows/*.spec
+__pycache__/
+.pytest_cache/
