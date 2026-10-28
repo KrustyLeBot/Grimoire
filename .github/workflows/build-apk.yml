@@ -100,7 +100,8 @@ jobs:
         run: pyinstaller --noconfirm grimoire.spec
       - name: Size of the exe
         shell: bash
-        run: ls -l dist/Grimoire.exe | awk '{ printf "Grimoire.exe: %.1f Mo\n", $5 / 1000000 }'
+        run: |
+          ls -l dist/Grimoire.exe | awk '{ printf "Grimoire.exe = %.1f Mo\n", $5 / 1000000 }'
       - uses: actions/upload-artifact@v4
         with:
           name: grimoire-windows
