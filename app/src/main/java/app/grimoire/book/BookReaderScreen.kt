@@ -141,7 +141,7 @@ fun BookReaderScreen(model: BookReaderModel, onBack: () -> Unit) {
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         BookTheme.entries.forEach { t ->
-                            FilterChip(model.theme == t, { model.setTheme(t) }, { Text(t.label, maxLines = 1) })
+                            FilterChip(model.theme == t, { model.chooseTheme(t) }, { Text(t.label, maxLines = 1) })
                         }
                     }
                 }

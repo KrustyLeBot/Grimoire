@@ -112,7 +112,7 @@ class BookReaderModel(private val app: GrimoireApp, val id: String, scope: Corou
         generation++
     }
 
-    fun setTheme(t: BookTheme) {
+    fun chooseTheme(t: BookTheme) {
         if (t == theme) return
         theme = t
         app.settings.bookTheme = t.raw
