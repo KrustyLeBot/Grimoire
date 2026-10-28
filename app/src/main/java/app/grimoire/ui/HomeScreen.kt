@@ -133,7 +133,8 @@ private fun LibraryTab(vm: MainViewModel, online: Boolean) {
     val items = data.library
         .map { it to vm.unread(it) }
         .filter { (item, unread) ->
-            val started = data.progress[item.key]?.last != null
+            // Marking chapters read by hand counts as started, like reading one.
+            val started = data.progress[item.key]?.let { it.last != null || it.read.isNotEmpty() } == true
             when (filter) {
                 LibraryFilter.READING -> !started || unread > 0
                 LibraryFilter.ALL -> true
@@ -170,7 +171,7 @@ private fun LibraryTab(vm: MainViewModel, online: Boolean) {
                 SeriesCell(
                     title = item.title, cover = item.cover, source = item.source,
                     badge = unread.takeIf { it > 0 }?.toString(),
-                    subtitle = last?.chapterName ?: "Pas commencé",
+                    subtitle = last?.chapterName ?: if (unread == 0 && data.progress[item.key]?.read.orEmpty().isNotEmpty()) "Tout lu" else "Pas commencé",
                     enabled = online || offline,
                     onClick = { vm.open(Screen.Series(item.source, item.slug, item.title, item.cover)) },
                 )
