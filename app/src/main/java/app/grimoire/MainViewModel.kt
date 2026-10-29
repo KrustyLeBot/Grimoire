@@ -17,6 +17,7 @@ import app.grimoire.data.WebSearch
 import app.grimoire.data.Ops
 import app.grimoire.data.SeriesProgress
 import app.grimoire.data.seriesKey
+import app.grimoire.reddit.RedditState
 import app.grimoire.source.Catalog
 import app.grimoire.source.Kind
 import app.grimoire.source.ChapterInfo
@@ -110,7 +111,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    val reddit = app.grimoire.reddit.RedditState(app.redditClient, app.redditConfig, viewModelScope, { app.online.value }) { show(it) }
+    val reddit = RedditState(app.redditClient, app.redditConfig, viewModelScope, { app.online.value }) { show(it) }
 
     fun onOpen() {
         reddit.onOpen()

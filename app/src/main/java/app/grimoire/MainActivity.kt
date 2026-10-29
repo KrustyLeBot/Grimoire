@@ -1,5 +1,6 @@
 package app.grimoire
 
+import app.grimoire.ui.RedditThreadScreen
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
@@ -63,7 +64,7 @@ class MainActivity : ComponentActivity() {
                     Screen.History -> HistoryScreen(vm)
                     is Screen.Book -> BookScreen(vm, s.id)
                     is Screen.Web -> WebScreen(vm, s.url, s.title)
-                    is Screen.RedditThread -> app.grimoire.ui.RedditThreadScreen(vm, s)
+                    is Screen.RedditThread -> RedditThreadScreen(vm, s)
                     is Screen.BookReader -> {
                         val model = remember(s.id) { BookReaderModel(vm.app, s.id, vm.app.scope) }
                         BookReaderScreen(model, onBack = { vm.back() })

@@ -73,6 +73,7 @@ import androidx.compose.foundation.horizontalScroll
 import app.grimoire.Feed
 import app.grimoire.Lister
 import app.grimoire.MainViewModel
+import app.grimoire.Section
 import app.grimoire.Screen
 import app.grimoire.book.Books
 import app.grimoire.Tab as HomeTab
@@ -100,12 +101,12 @@ fun HomeScreen(vm: MainViewModel) {
             // Lecture | Reddit, once Reddit is set up in the settings.
             if (vm.reddit.config.configured) {
                 androidx.compose.material3.NavigationBar {
-                    app.grimoire.Section.entries.forEach { sec ->
+                    Section.entries.forEach { sec ->
                         androidx.compose.material3.NavigationBarItem(
                             selected = vm.section == sec, onClick = { vm.section = sec },
                             icon = {
                                 Icon(
-                                    if (sec == app.grimoire.Section.READING) Icons.Default.MenuBook else Icons.Default.Forum, null,
+                                    if (sec == Section.READING) Icons.Default.MenuBook else Icons.Default.Forum, null,
                                 )
                             },
                             label = { Text(sec.label) },
@@ -115,7 +116,7 @@ fun HomeScreen(vm: MainViewModel) {
             }
         },
     ) { padding ->
-        if (vm.section == app.grimoire.Section.REDDIT && vm.reddit.config.configured) {
+        if (vm.section == Section.REDDIT && vm.reddit.config.configured) {
             Column(Modifier.padding(padding).fillMaxSize()) {
                 Banners(vm, online, storeError)
                 RedditSection(vm)
