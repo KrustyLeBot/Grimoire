@@ -46,10 +46,15 @@ sealed interface Screen {
     data class Book(val id: String) : Screen
     data class BookReader(val id: String) : Screen
     data class Web(val url: String, val title: String) : Screen
+    /** A Reddit thread; [comment] opens the sub-thread under one comment ("continuer la discussion"). */
+    data class RedditThread(val id: String, val comment: String?, val title: String) : Screen
 }
 
-/** The "Lecture" section's tabs. Other sections (Reddit…) will sit next to it. */
+/** The "Lecture" section's tabs. */
 enum class Tab(val label: String) { LIBRARY("Bibliothèque"), DISCOVER("Découvrir"), SEARCH("Recherche") }
+
+/** The home screen's sections, in the bottom bar once Reddit is set up. */
+enum class Section(val label: String) { READING("Lecture"), REDDIT("Reddit") }
 
 enum class Feed(val label: String) { LATEST("Récents"), POPULAR("Populaires") }
 
@@ -74,6 +79,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private set
     val screen get() = stack.last()
     var tab by mutableStateOf(Tab.LIBRARY)
+    var section by mutableStateOf(Section.READING)
 
     fun open(s: Screen) {
         stack = stack + s
@@ -104,7 +110,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    val reddit = app.grimoire.reddit.RedditState(app.redditClient, app.redditConfig, viewModelScope, { app.online.value }) { show(it) }
+
     fun onOpen() {
+        reddit.onOpen()
         val access = store.hasStorageAccess()
         if (access != storageOk) {
             storageOk = access

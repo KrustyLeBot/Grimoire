@@ -127,6 +127,8 @@ fun SettingsScreen(vm: MainViewModel) {
                 OutlinedButton(onClick = { editing = null to WebSearch("", "https://") }) { Text("Ajouter un site") }
             }
 
+            RedditSettings(vm)
+
             SyncSettings(vm.store.syncPath)
             UpdateSettings(vm.updates)
             AboutSettings(

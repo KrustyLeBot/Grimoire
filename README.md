@@ -48,6 +48,30 @@ of configured instances can exist (another address if the site moves, options, l
 Poseidon Scans needs no account; premium chapters need a premium login, done in a WebView from
 the source's settings. Protocol details: [docs/SPECS.md](docs/SPECS.md).
 
+## Reddit (Android)
+
+A « Lecture | Reddit » bar appears at the bottom of the home screen once Reddit is set up in
+Paramètres › Reddit. The app never talks to Reddit: it reads the JSON of the self-hosted proxy
+[KrustyLeBot/RedditProxy](https://github.com/KrustyLeBot/RedditProxy), which caches, keeps the
+followed feeds fresh and respects Reddit's rate limit.
+
+- **Settings** (device only, encrypted with an Android Keystore key, never in the synced folder):
+  proxy address (an example address by default: the real one is entered on the phone), optional LAN
+  address used whenever it answers, headers sent with every request (`Nom: valeur` lines, e.g.
+  `Authorization: Bearer <key>` and the Cloudflare service token), subreddits. Saved only once the
+  proxy accepted them (`POST /watch`).
+- **Feed**: subreddit and sort chips (Populaires, Récents, Top with a period, En hausse), endless
+  scrolling with `after`. **Thread**: post (HTML, image, swipeable gallery, HLS video or GIF as MP4
+  with media3), comments depth first with coloured indentation, folded by a tap, OP and moderators
+  marked, « Voir N autres réponses » (`/more`) and « Continuer la discussion » (sub-thread).
+- **Watch**: at each start the app sends its subreddits (hot and new) to the proxy, which refreshes
+  them in the background; a proxy that lost its list gets it back from the apps.
+- **Offline**: every feed page and thread fetched is kept in the cache folder; when the proxy cannot
+  be reached the last copy is shown with a « Hors ligne » banner.
+
+Code: `app/src/main/java/app/grimoire/reddit/` (config, client, models, state) and
+`ui/Reddit*.kt`.
+
 ## Windows app
 
 `windows/`: the same app for the computer (Python, PySide6 with Qt WebEngine, one `Grimoire.exe`),

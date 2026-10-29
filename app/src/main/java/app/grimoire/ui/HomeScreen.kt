@@ -36,6 +36,8 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Forum
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -94,7 +96,32 @@ fun HomeScreen(vm: MainViewModel) {
                 IconButton(onClick = { vm.open(Screen.Settings) }) { Icon(Icons.Default.Settings, "Paramètres") }
             }
         },
+        bottomBar = {
+            // Lecture | Reddit, once Reddit is set up in the settings.
+            if (vm.reddit.config.configured) {
+                androidx.compose.material3.NavigationBar {
+                    app.grimoire.Section.entries.forEach { sec ->
+                        androidx.compose.material3.NavigationBarItem(
+                            selected = vm.section == sec, onClick = { vm.section = sec },
+                            icon = {
+                                Icon(
+                                    if (sec == app.grimoire.Section.READING) Icons.Default.MenuBook else Icons.Default.Forum, null,
+                                )
+                            },
+                            label = { Text(sec.label) },
+                        )
+                    }
+                }
+            }
+        },
     ) { padding ->
+        if (vm.section == app.grimoire.Section.REDDIT && vm.reddit.config.configured) {
+            Column(Modifier.padding(padding).fillMaxSize()) {
+                Banners(vm, online, storeError)
+                RedditSection(vm)
+            }
+            return@Scaffold
+        }
         Column(Modifier.padding(padding).fillMaxSize()) {
             Banners(vm, online, storeError)
             TabRow(selectedTabIndex = vm.tab.ordinal) {

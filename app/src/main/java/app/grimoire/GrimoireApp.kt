@@ -35,6 +35,8 @@ class GrimoireApp : Application(), SingletonImageLoader.Factory {
     val settings by lazy { Settings(this) }
     val books by lazy { Books(this, http) }
     val lookup by lazy { BookLookup(http) }
+    val redditConfig by lazy { app.grimoire.reddit.RedditConfigStore(this) }
+    val redditClient by lazy { app.grimoire.reddit.RedditClient(redditConfig, cacheDir) }
 
     /** Work that outlives a screen (marking a chapter read when leaving the reader, say). */
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
