@@ -14,7 +14,7 @@ class RedditJsonTest {
           "score":1520,"ratio":0.94,"comments":231,"created":1793270000,"url":"https://i.redd.it/abc.jpg","domain":"i.redd.it",
           "permalink":"/r/france/comments/p1/x/","thumb":"https://preview.redd.it/t.jpg",
           "media":{"kind":"image","images":[{"url":"https://preview.redd.it/abc.jpg?s=1","w":1200,"h":900}]}},
-         {"id":"p3","name":"t3_p3","sub":"france","title":"Galerie","author":"carol","score":10,"ratio":0.7,"comments":3,"created":1,
+         {"id":"p3","name":"t3_p3","sub":"france","partial":true,"title":"Galerie","author":"carol","score":10,"ratio":0.7,"comments":3,"created":1,
           "permalink":"/r/france/comments/p3/g/","media":{"kind":"gallery","images":[{"url":"https://a/1.jpg","w":640,"h":480,"caption":"deux"},{"url":"https://a/2.jpg"}]}},
          {"id":"p4","name":"t3_p4","sub":"france","title":"Vidéo","author":"dan","score":5,"ratio":0.6,"comments":0,"created":1,"nsfw":true,
           "permalink":"/r/france/comments/p4/v/","media":{"kind":"video","video":{"hls":"https://v.redd.it/vid/HLSPlaylist.m3u8","mp4":"https://v.redd.it/vid/DASH_720.mp4","w":1280,"h":720,"duration":31}}},
@@ -35,6 +35,8 @@ class RedditJsonTest {
         assertEquals("Humour", img.flair)
         assertEquals(MediaKind.GALLERY, gallery.kind)
         assertEquals("deux", gallery.images[0].caption)
+        assertTrue(gallery.partial)
+        assertFalse(img.partial)
         assertNull(gallery.images[1].caption)
         assertEquals(MediaKind.VIDEO, video.kind)
         assertEquals(31, video.video?.duration)

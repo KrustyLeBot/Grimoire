@@ -110,8 +110,9 @@ class RedditClient(private val config: RedditConfigStore, cacheDir: File) {
         return RedditJson.feed(text).let { if (stale) it.copy(stale = true) else it }
     }
 
-    suspend fun thread(id: String, sort: CommentSort, comment: String?, online: Boolean): RedditThread {
-        val q = "/thread/$id?sort=${sort.raw}" + (comment?.let { "&comment=$it" } ?: "")
+    suspend fun thread(id: String, sub: String, sort: CommentSort, comment: String?, online: Boolean): RedditThread {
+        // The proxy needs the subreddit when it reads Reddit's RSS feeds.
+        val q = "/thread/$id?sort=${sort.raw}&sub=$sub" + (comment?.let { "&comment=$it" } ?: "")
         val (text, stale) = cached(q, online)
         return RedditJson.thread(text).let { if (stale) it.copy(stale = true) else it }
     }

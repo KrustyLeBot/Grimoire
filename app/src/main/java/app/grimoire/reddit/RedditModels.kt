@@ -37,6 +37,8 @@ data class RedditPost(
     val kind: MediaKind,
     val images: List<RedditImage>,
     val video: RedditVideo?,
+    /** Read from RSS by the proxy: score, ratio and comment count are unknown. */
+    val partial: Boolean = false,
 )
 
 data class RedditComment(
@@ -107,6 +109,7 @@ object RedditJson {
             },
             images = (0 until images.length()).map { image(images.getJSONObject(it)) },
             video = video,
+            partial = o.optBoolean("partial"),
         )
     }
 

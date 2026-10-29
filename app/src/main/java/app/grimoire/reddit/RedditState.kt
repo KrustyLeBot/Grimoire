@@ -92,14 +92,14 @@ class RedditState(
 
     fun threadKey(id: String, comment: String?, sort: CommentSort) = "$id|${comment.orEmpty()}|${sort.raw}"
 
-    fun loadThread(id: String, comment: String?, sort: CommentSort, force: Boolean = false) {
+    fun loadThread(id: String, comment: String?, sub: String, sort: CommentSort, force: Boolean = false) {
         val key = threadKey(id, comment, sort)
         val current = threads[key] ?: ThreadView()
         if (current.loading || (current.thread != null && !force)) return
         threads[key] = current.copy(loading = true, error = null)
         scope.launch {
             threads[key] = try {
-                ThreadView(client.thread(id, sort, comment, online()))
+                ThreadView(client.thread(id, sub, sort, comment, online()))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

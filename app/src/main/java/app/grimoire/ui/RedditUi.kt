@@ -191,6 +191,7 @@ private fun Color.luminance(): Float = 0.2126f * red + 0.7152f * green + 0.0722f
 
 @Composable
 fun PostStats(post: RedditPost) {
+    if (post.partial) return // read from RSS: no score nor comment count to show
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Icon(Icons.Default.ArrowUpward, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
         Text(compactCount(post.score), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
@@ -298,7 +299,7 @@ fun RedditSection(vm: MainViewModel) {
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(feed.posts, key = { it.id }) { p ->
-                    PostCard(p, showSub = r.sub?.contains('+') == true) { vm.open(Screen.RedditThread(p.id, null, "r/${p.sub}")) }
+                    PostCard(p, showSub = r.sub?.contains('+') == true) { vm.open(Screen.RedditThread(p.id, null, p.sub)) }
                 }
                 item {
                     Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) {

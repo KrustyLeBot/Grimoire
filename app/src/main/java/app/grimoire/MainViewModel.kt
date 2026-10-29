@@ -48,7 +48,7 @@ sealed interface Screen {
     data class BookReader(val id: String) : Screen
     data class Web(val url: String, val title: String) : Screen
     /** A Reddit thread; [comment] opens the sub-thread under one comment ("continuer la discussion"). */
-    data class RedditThread(val id: String, val comment: String?, val title: String) : Screen
+    data class RedditThread(val id: String, val comment: String?, val sub: String) : Screen
 }
 
 /** The "Lecture" section's tabs. */

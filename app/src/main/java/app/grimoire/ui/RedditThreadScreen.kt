@@ -70,7 +70,7 @@ fun RedditThreadScreen(vm: MainViewModel, s: Screen.RedditThread) {
     val r = vm.reddit
     var sort by rememberSaveable(s.id, s.comment) { mutableStateOf(CommentSort.BEST) }
     val key = r.threadKey(s.id, s.comment, sort)
-    LaunchedEffect(key) { r.loadThread(s.id, s.comment, sort) }
+    LaunchedEffect(key) { r.loadThread(s.id, s.comment, s.sub, sort) }
     val view = r.threads[key]
     val uri = LocalUriHandler.current
     var sortMenu by remember { mutableStateOf(false) }
@@ -85,7 +85,7 @@ fun RedditThreadScreen(vm: MainViewModel, s: Screen.RedditThread) {
 
     Scaffold(
         topBar = {
-            SuiteTopBar(s.title, onBack = { vm.back() }) {
+            SuiteTopBar("r/${s.sub}", onBack = { vm.back() }) {
                 Box {
                     IconButton(onClick = { sortMenu = true }) { Icon(Icons.AutoMirrored.Filled.Sort, "Trier les commentaires") }
                     DropdownMenu(sortMenu, { sortMenu = false }) {
@@ -94,7 +94,7 @@ fun RedditThreadScreen(vm: MainViewModel, s: Screen.RedditThread) {
                         }
                     }
                 }
-                IconButton(onClick = { r.loadThread(s.id, s.comment, sort, force = true) }) { Icon(Icons.Default.Refresh, "Actualiser") }
+                IconButton(onClick = { r.loadThread(s.id, s.comment, s.sub, sort, force = true) }) { Icon(Icons.Default.Refresh, "Actualiser") }
                 thread?.post?.permalink?.let { p ->
                     IconButton(onClick = { uri.openUri("https://www.reddit.com$p") }) { Icon(Icons.AutoMirrored.Filled.OpenInNew, "Ouvrir sur Reddit") }
                 }
@@ -105,7 +105,7 @@ fun RedditThreadScreen(vm: MainViewModel, s: Screen.RedditThread) {
             when {
                 thread == null && view?.error != null -> Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
                     Empty(view?.error.orEmpty())
-                    TextButton(onClick = { r.loadThread(s.id, s.comment, sort, force = true) }) { Text("Réessayer") }
+                    TextButton(onClick = { r.loadThread(s.id, s.comment, s.sub, sort, force = true) }) { Text("Réessayer") }
                 }
                 thread == null -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
                 else -> {
@@ -113,12 +113,12 @@ fun RedditThreadScreen(vm: MainViewModel, s: Screen.RedditThread) {
                     val visible = visibleComments(thread.comments, collapsed)
                     LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
                         item(key = "post") { PostHeader(thread.post, s.comment != null, onOpenUrl = { uri.openUri(it) }, onWhole = {
-                            vm.open(Screen.RedditThread(s.id, null, s.title))
+                            vm.open(Screen.RedditThread(s.id, null, s.sub))
                         }) }
                         if (thread.comments.isEmpty()) item { Empty("Aucun commentaire") }
                         items(visible, key = { (c, _) -> (if (c.more) "more:" else "c:") + c.id + c.parent }) { (c, hidden) ->
                             if (c.more) MoreRow(c, loading = c.id in view?.expanding.orEmpty()) {
-                                if (c.continueAt != null) vm.open(Screen.RedditThread(s.id, c.continueAt, s.title))
+                                if (c.continueAt != null) vm.open(Screen.RedditThread(s.id, c.continueAt, s.sub))
                                 else r.expand(key, s.id, c, sort)
                             } else CommentRow(c, folded = c.id in collapsed, hidden = hidden) {
                                 collapsed = if (c.id in collapsed) collapsed - c.id else collapsed + c.id
