@@ -37,25 +37,35 @@ class RedditState(
 ) {
     var config by mutableStateOf(store.load())
         private set
-    var sub by mutableStateOf(config.subs.firstOrNull())
-    var sort by mutableStateOf(FeedSort.HOT)
-    var period by mutableStateOf(TopPeriod.DAY)
+    /**
+     * The subreddit shown, null for all. Filtering is local: the feed holds the latest posts of every
+     * followed subreddit, fetched in one request (r/a+b+c/new).
+     */
+    var filter by mutableStateOf<String?>(null)
 
     val feeds = mutableStateMapOf<String, FeedView>()
     val threads = mutableStateMapOf<String, ThreadView>()
 
-    private fun feedKey() = "$sub|${sort.raw}|${if (sort == FeedSort.TOP) period.raw else ""}"
+    private fun feedKey() = "all"
+    private val allSubs: String? get() = config.subs.takeIf { it.isNotEmpty() }?.joinToString("+")
+    private val srt = FeedSort.NEW
+    private val per = TopPeriod.DAY
 
     val feed: FeedView get() = feeds[feedKey()] ?: FeedView()
 
-    /** First page of the current feed (again when [refresh]); nothing when already shown. */
+    /** The posts of the feed that match [filter]. */
+    val shown: List<RedditPost> get() = filter.let { f -> if (f == null) feed.posts else feed.posts.filter { it.sub.equals(f, true) } }
+
+    /** A post already fetched with the feed: shown at once when its thread opens. */
+    fun post(id: String): RedditPost? = feeds.values.firstNotNullOfOrNull { v -> v.posts.firstOrNull { it.id == id } }
+
+    /** First page of the feed (again when [refresh]); nothing when already shown. */
     fun load(refresh: Boolean = false) {
-        val s = sub ?: return
+        val s = allSubs ?: return
         val key = feedKey()
         val current = feeds[key] ?: FeedView()
         if (current.loading || (current.loaded && !refresh)) return
         feeds[key] = current.copy(loading = true, error = null)
-        val (srt, per) = sort to period
         scope.launch {
             feeds[key] = try {
                 val f = client.feed(s, srt, per, null, online(), refresh)
@@ -70,13 +80,12 @@ class RedditState(
 
     /** Next page, when the list reaches its end. */
     fun loadMore() {
-        val s = sub ?: return
+        val s = allSubs ?: return
         val key = feedKey()
         val current = feeds[key] ?: return
         val after = current.after ?: return
         if (current.loading) return
         feeds[key] = current.copy(loading = true, error = null)
-        val (srt, per) = sort to period
         scope.launch {
             feeds[key] = try {
                 val f = client.feed(s, srt, per, after, online())
@@ -139,7 +148,7 @@ class RedditState(
         client.test(c)?.let { return it }
         store.save(c)
         config = c
-        if (sub !in c.subs) sub = c.subs.first()
+        if (filter != null && c.subs.none { it.equals(filter, true) }) filter = null
         feeds.clear()
         return null
     }

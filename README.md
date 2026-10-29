@@ -60,12 +60,14 @@ followed feeds fresh and respects Reddit's rate limit.
   address used whenever it answers, login (Basic auth, sent up front), Cloudflare Access service token
   (Client ID and Secret, sent as `CF-Access-Client-Id` / `CF-Access-Client-Secret`), subreddits. Saved only once the
   proxy accepted them (`POST /watch`).
-- **Feed**: subreddit and sort chips (Populaires, Récents, Top with a period, En hausse), endless
-  scrolling with `after`. **Thread**: post (HTML, image, swipeable gallery, HLS video or GIF as MP4
-  with media3), comments depth first with coloured indentation, folded by a tap, OP and moderators
-  marked, « Voir N autres réponses » (`/more`) and « Continuer la discussion » (sub-thread).
-- **Watch**: at each start the app sends its subreddits (hot and new) to the proxy, which refreshes
-  them in the background; a proxy that lost its list gets it back from the apps.
+- **Feed**: one request brings the latest posts (`new`) of every followed subreddit at once
+  (`r/a+b+c`); the subreddit chips only filter what is already there. Scrolling loads older pages
+  (with a filter, on demand). **Thread**: the post comes from the feed and shows with no request;
+  comments load only on « Afficher les commentaires ». Comments with coloured indentation, folded
+  by a tap, OP and moderators marked, « Voir N autres réponses » and « Continuer la discussion »
+  when the proxy reads the API (with RSS they come flat, without scores).
+- **Watch**: at each start the app sends its one feed to the proxy (replacing what it watched
+  before), which refreshes it in the background; a proxy that lost its list gets it back.
 - **Offline**: every feed page and thread fetched is kept in the cache folder; when the proxy cannot
   be reached the last copy is shown with a « Hors ligne » banner.
 

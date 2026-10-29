@@ -127,9 +127,9 @@ class RedditClient(private val config: RedditConfigStore, cacheDir: File) {
      * the proxy lost its list (restarted, new container), it gets it back from the apps.
      */
     suspend fun watch(c: RedditConfig = config.load()): Unit = withContext(Dispatchers.IO) {
-        val feeds = JSONArray()
-        c.subs.forEach { sub -> listOf(FeedSort.HOT, FeedSort.NEW).forEach { feeds.put(JSONObject().put("sub", sub).put("sort", it.raw)) } }
-        call(c, "/watch", JSONObject().put("feeds", feeds).toString())
+        // One feed: the latest posts of every followed subreddit; it replaces whatever was watched before.
+        val feeds = JSONArray().put(JSONObject().put("sub", c.subs.joinToString("+")).put("sort", FeedSort.NEW.raw))
+        call(c, "/watch", JSONObject().put("replace", true).put("feeds", feeds).toString())
     }
 
     /** Checks settings before they are saved: the proxy must accept the headers. Null when fine. */

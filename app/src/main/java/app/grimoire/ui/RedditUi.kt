@@ -69,10 +69,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import app.grimoire.MainViewModel
 import app.grimoire.Screen
-import app.grimoire.reddit.FeedSort
 import app.grimoire.reddit.MediaKind
 import app.grimoire.reddit.RedditPost
-import app.grimoire.reddit.TopPeriod
 import app.grimoire.reddit.ago
 import app.grimoire.reddit.compactCount
 import app.grimoire.suite.SuiteBanner
@@ -267,27 +265,25 @@ private fun Preview(post: RedditPost) {
 fun RedditSection(vm: MainViewModel) {
     val r = vm.reddit
     val feed = r.feed
-    LaunchedEffect(r.sub, r.sort, r.period) { r.load() }
+    val shown = r.shown
+    LaunchedEffect(r.config) { r.load() }
     Column(Modifier.fillMaxSize()) {
+        // The latest posts of every followed subreddit; a chip only filters what is already here.
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
         ) {
-            r.config.subs.forEach { s -> FilterChip(r.sub == s, { r.sub = s }, { Text("r/$s") }) }
-        }
-        Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
-        ) {
-            FeedSort.entries.forEach { s -> FilterChip(r.sort == s, { r.sort = s }, { Text(s.label) }) }
-            if (r.sort == FeedSort.TOP) TopPeriod.entries.forEach { p -> FilterChip(r.period == p, { r.period = p }, { Text(p.label) }) }
             IconButton(onClick = { r.load(refresh = true) }, enabled = !feed.loading) { Icon(Icons.Default.Refresh, "Actualiser") }
+            FilterChip(r.filter == null, { r.filter = null }, { Text("Tous") })
+            r.config.subs.forEach { s -> FilterChip(r.filter == s, { r.filter = if (r.filter == s) null else s }, { Text("r/$s") }) }
         }
         if (feed.stale) SuiteBanner("Copie gardée sur le téléphone : le proxy n'a pas pu joindre Reddit.", title = "Hors ligne")
         val list = rememberLazyListState()
         val nearEnd by remember { derivedStateOf { list.layoutInfo.visibleItemsInfo.lastOrNull()?.index?.let { it >= list.layoutInfo.totalItemsCount - 4 } == true } }
-        LaunchedEffect(nearEnd, feed.posts.size) { if (nearEnd && !feed.end) r.loadMore() }
+        // Filtered, the end of the list may hold no new match: older pages load on demand only.
+        LaunchedEffect(nearEnd, feed.posts.size) { if (nearEnd && !feed.end && r.filter == null) r.loadMore() }
         when {
+            feed.posts.isNotEmpty() && shown.isEmpty() && feed.end -> Empty("Aucun post récent de r/${r.filter} pour l'instant")
             feed.posts.isEmpty() && feed.loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
             feed.posts.isEmpty() && feed.error != null -> Column(Modifier.fillMaxSize(), Arrangement.Center, Alignment.CenterHorizontally) {
                 Empty(feed.error)
@@ -298,8 +294,8 @@ fun RedditSection(vm: MainViewModel) {
                 state = list, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(feed.posts, key = { it.id }) { p ->
-                    PostCard(p, showSub = r.sub?.contains('+') == true) { vm.open(Screen.RedditThread(p.id, null, p.sub)) }
+                items(shown, key = { it.id }) { p ->
+                    PostCard(p, showSub = r.filter == null) { vm.open(Screen.RedditThread(p.id, null, p.sub)) }
                 }
                 item {
                     Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) {
@@ -307,6 +303,7 @@ fun RedditSection(vm: MainViewModel) {
                             feed.loading -> CircularProgressIndicator(Modifier.size(28.dp))
                             feed.error != null -> TextButton(onClick = { r.loadMore() }) { Text("${feed.error} · Réessayer") }
                             feed.end -> Text("Fin du fil", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            r.filter != null -> TextButton(onClick = { r.loadMore() }) { Text("Charger des posts plus anciens") }
                         }
                     }
                 }
