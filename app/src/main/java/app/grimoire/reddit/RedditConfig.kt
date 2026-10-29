@@ -21,7 +21,10 @@ data class RedditConfig(
     val url: String = EXAMPLE_URL,
     /** Optional http://IP:port used instead of [url] whenever it answers (at home, without Cloudflare). */
     val lanUrl: String = "",
-    /** Sent with every request, e.g. Authorization: Bearer <key>, CF-Access-Client-Id, CF-Access-Client-Secret. */
+    /** The proxy's login (Basic auth, like the Synchrotron server). */
+    val user: String = "",
+    val password: String = "",
+    /** Sent with every request too, e.g. CF-Access-Client-Id and CF-Access-Client-Secret. */
     val headers: List<Pair<String, String>> = emptyList(),
     val subs: List<String> = emptyList(),
 ) {
@@ -64,6 +67,8 @@ class RedditConfigStore(context: Context) {
         val json = JSONObject()
             .put("url", config.url.trim())
             .put("lanUrl", config.lanUrl.trim())
+            .put("user", config.user.trim())
+            .put("password", config.password.trim())
             .put("headers", JSONArray().apply { config.headers.forEach { put(JSONArray().put(it.first).put(it.second)) } })
             .put("subs", JSONArray(config.subs))
         val cipher = Cipher.getInstance(TRANSFORM).apply { init(Cipher.ENCRYPT_MODE, key()) }
@@ -91,6 +96,8 @@ class RedditConfigStore(context: Context) {
             RedditConfig(
                 url = o.optString("url", RedditConfig.EXAMPLE_URL),
                 lanUrl = o.optString("lanUrl"),
+                user = o.optString("user"),
+                password = o.optString("password"),
                 headers = (0 until h.length()).map { h.getJSONArray(it).let { p -> p.getString(0) to p.getString(1) } },
                 subs = (0 until s.length()).map { s.getString(it) },
             )

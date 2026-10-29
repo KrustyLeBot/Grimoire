@@ -2,6 +2,7 @@ package app.grimoire.reddit
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -47,6 +48,8 @@ class RedditClient(private val config: RedditConfigStore, cacheDir: File) {
     private fun call(c: RedditConfig, path: String, body: String? = null): String {
         val request = Request.Builder().url(base(c) + path).apply {
             c.headers.forEach { (k, v) -> header(k, v) }
+            // Sent up front: the proxy answers 401 rather than asking.
+            if (c.user.isNotBlank()) header("Authorization", Credentials.basic(c.user.trim(), c.password.trim()))
             header("Accept", "application/json")
             if (body != null) post(body.toRequestBody("application/json".toMediaType()))
         }.build()
@@ -65,7 +68,7 @@ class RedditClient(private val config: RedditConfigStore, cacheDir: File) {
                 when {
                     r.code in 300..399 || (!json && (r.code == 403 || r.isSuccessful)) ->
                         "Accès refusé avant le proxy : vérifie les en-têtes Cloudflare dans les réglages"
-                    r.code == 401 -> "Clé refusée par le proxy : vérifie l'en-tête Authorization dans les réglages"
+                    r.code == 401 -> "Identifiant ou mot de passe refusé par le proxy"
                     !error.isNullOrBlank() -> error
                     r.code in 502..530 -> "Proxy Reddit injoignable (HTTP ${r.code})"
                     else -> "Le proxy a répondu HTTP ${r.code}"

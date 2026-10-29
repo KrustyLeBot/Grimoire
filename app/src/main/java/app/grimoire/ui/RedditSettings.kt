@@ -43,6 +43,9 @@ fun RedditSettings(vm: MainViewModel) {
     val scope = rememberCoroutineScope()
     var url by remember { mutableStateOf(r.config.url) }
     var lanUrl by remember { mutableStateOf(r.config.lanUrl) }
+    var user by remember { mutableStateOf(r.config.user) }
+    var password by remember { mutableStateOf(r.config.password) }
+    var showPassword by remember { mutableStateOf(false) }
     var headers by remember { mutableStateOf(RedditConfig.formatHeaders(r.config.headers)) }
     var subs by remember { mutableStateOf(r.config.subs.joinToString(", ")) }
     var showHeaders by remember { mutableStateOf(false) }
@@ -50,7 +53,7 @@ fun RedditSettings(vm: MainViewModel) {
     var message by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
     var cacheBytes by remember { mutableStateOf(vm.app.redditClient.cacheBytes()) }
 
-    fun draft() = RedditConfig(url.trim(), lanUrl.trim(), RedditConfig.parseHeaders(headers), RedditConfig.parseSubs(subs))
+    fun draft() = RedditConfig(url.trim(), lanUrl.trim(), user.trim(), password.trim(), RedditConfig.parseHeaders(headers), RedditConfig.parseSubs(subs))
 
     SectionTitle("Reddit")
     SettingsCard {
@@ -69,6 +72,20 @@ fun RedditSettings(vm: MainViewModel) {
             supportingText = { Text("ex. http://192.168.1.111:8095 : utilisée quand elle répond (à la maison)") },
         )
         OutlinedTextField(
+            user, { user = it }, label = { Text("Utilisateur") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
+        )
+        OutlinedTextField(
+            password, { password = it }, label = { Text("Mot de passe") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+            trailingIcon = {
+                IconButton(onClick = { showPassword = !showPassword }) {
+                    Icon(if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility, if (showPassword) "Masquer" else "Afficher")
+                }
+            },
+        )
+        OutlinedTextField(
             headers, { headers = it }, label = { Text("En-têtes (un par ligne)") }, modifier = Modifier.fillMaxWidth(), minLines = 3,
             visualTransformation = if (showHeaders) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Password),
@@ -77,7 +94,7 @@ fun RedditSettings(vm: MainViewModel) {
                     Icon(if (showHeaders) Icons.Default.VisibilityOff else Icons.Default.Visibility, if (showHeaders) "Masquer" else "Afficher")
                 }
             },
-            supportingText = { Text("Nom: valeur, ex. Authorization: Bearer <clé>, CF-Access-Client-Id: …, CF-Access-Client-Secret: …") },
+            supportingText = { Text("Nom: valeur, ex. CF-Access-Client-Id: … et CF-Access-Client-Secret: …") },
         )
         OutlinedTextField(
             subs, { subs = it }, label = { Text("Subreddits") }, modifier = Modifier.fillMaxWidth(),
@@ -93,7 +110,7 @@ fun RedditSettings(vm: MainViewModel) {
                 scope.launch {
                     val err = vm.app.redditClient.test(draft())
                     busy = false
-                    message = if (err == null) true to "Le proxy répond et accepte la clé" else false to err
+                    message = if (err == null) true to "Le proxy répond et accepte l'identifiant" else false to err
                 }
             }) { Text("Tester") }
             Button(enabled = !busy, modifier = Modifier.weight(1f), onClick = {
