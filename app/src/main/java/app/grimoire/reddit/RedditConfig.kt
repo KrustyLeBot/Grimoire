@@ -35,17 +35,6 @@ data class RedditConfig(
         const val EXAMPLE_URL = "https://reddit.example.com/"
         private val subName = Regex("^[A-Za-z0-9_]{2,21}$")
 
-        /** "Nom: valeur" lines into headers; lines without a name or a colon are dropped. */
-        fun parseHeaders(text: String): List<Pair<String, String>> = text.lines().mapNotNull { line ->
-            val i = line.indexOf(':')
-            if (i <= 0) return@mapNotNull null
-            val name = line.substring(0, i).trim()
-            val value = line.substring(i + 1).trim()
-            if (name.isEmpty() || value.isEmpty() || name.any { it.isWhitespace() }) null else name to value
-        }
-
-        fun formatHeaders(headers: List<Pair<String, String>>) = headers.joinToString("\n") { "${it.first}: ${it.second}" }
-
         /** "france, manga r/Python" into [france, manga, Python]: commas, spaces or lines, r/ optional. */
         fun parseSubs(text: String): List<String> = text.split(',', ' ', '\n', ';')
             .map { it.trim().removePrefix("/").removePrefix("r/").removePrefix("/") }

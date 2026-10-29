@@ -57,8 +57,8 @@ followed feeds fresh and respects Reddit's rate limit.
 
 - **Settings** (device only, encrypted with an Android Keystore key, never in the synced folder):
   proxy address (an example address by default: the real one is entered on the phone), optional LAN
-  address used whenever it answers, login (Basic auth, sent up front), headers sent with every request
-  (`Nom: valeur` lines, e.g. the Cloudflare service token), subreddits. Saved only once the
+  address used whenever it answers, login (Basic auth, sent up front), Cloudflare Access service token
+  (Client ID and Secret, sent as `CF-Access-Client-Id` / `CF-Access-Client-Secret`), subreddits. Saved only once the
   proxy accepted them (`POST /watch`).
 - **Feed**: subreddit and sort chips (Populaires, Récents, Top with a period, En hausse), endless
   scrolling with `after`. **Thread**: post (HTML, image, swipeable gallery, HLS video or GIF as MP4

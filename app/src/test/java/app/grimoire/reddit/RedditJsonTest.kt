@@ -62,10 +62,6 @@ class RedditJsonTest {
     }
 
     @Test fun settingsParsing() {
-        assertEquals(
-            listOf("Authorization" to "Bearer abc:def", "CF-Access-Client-Id" to "x.access"),
-            RedditConfig.parseHeaders("Authorization: Bearer abc:def\n\n  CF-Access-Client-Id :  x.access \nnot a header\nBad Name: v"),
-        )
         assertEquals(listOf("france", "manga", "Python"), RedditConfig.parseSubs("r/france, manga;/r/Python  France\n!bad"))
         assertFalse(RedditConfig(subs = listOf("france")).configured) // still the example address
         assertTrue(RedditConfig(url = "https://reddit.mondomaine.fr/", subs = listOf("france")).configured)

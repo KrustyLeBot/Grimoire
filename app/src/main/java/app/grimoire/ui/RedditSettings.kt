@@ -46,14 +46,16 @@ fun RedditSettings(vm: MainViewModel) {
     var user by remember { mutableStateOf(r.config.user) }
     var password by remember { mutableStateOf(r.config.password) }
     var showPassword by remember { mutableStateOf(false) }
-    var headers by remember { mutableStateOf(RedditConfig.formatHeaders(r.config.headers)) }
+    // The Cloudflare Access service token, sent as its two headers.
+    var cfId by remember { mutableStateOf(r.config.headers.firstOrNull { it.first.equals(CF_ID, true) }?.second.orEmpty()) }
+    var cfSecret by remember { mutableStateOf(r.config.headers.firstOrNull { it.first.equals(CF_SECRET, true) }?.second.orEmpty()) }
     var subs by remember { mutableStateOf(r.config.subs.joinToString(", ")) }
-    var showHeaders by remember { mutableStateOf(false) }
+    var showSecret by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
     var cacheBytes by remember { mutableStateOf(vm.app.redditClient.cacheBytes()) }
 
-    fun draft() = RedditConfig(url.trim(), lanUrl.trim(), user.trim(), password.trim(), RedditConfig.parseHeaders(headers), RedditConfig.parseSubs(subs))
+    fun draft() = RedditConfig(url.trim(), lanUrl.trim(), user.trim(), password.trim(), cloudflareHeaders(cfId, cfSecret), RedditConfig.parseSubs(subs))
 
     SectionTitle("Reddit")
     SettingsCard {
@@ -86,15 +88,19 @@ fun RedditSettings(vm: MainViewModel) {
             },
         )
         OutlinedTextField(
-            headers, { headers = it }, label = { Text("En-têtes (un par ligne)") }, modifier = Modifier.fillMaxWidth(), minLines = 3,
-            visualTransformation = if (showHeaders) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Password),
+            cfId, { cfId = it }, label = { Text("Cloudflare Client ID") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
+        )
+        OutlinedTextField(
+            cfSecret, { cfSecret = it }, label = { Text("Cloudflare Client Secret") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+            visualTransformation = if (showSecret) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
             trailingIcon = {
-                IconButton(onClick = { showHeaders = !showHeaders }) {
-                    Icon(if (showHeaders) Icons.Default.VisibilityOff else Icons.Default.Visibility, if (showHeaders) "Masquer" else "Afficher")
+                IconButton(onClick = { showSecret = !showSecret }) {
+                    Icon(if (showSecret) Icons.Default.VisibilityOff else Icons.Default.Visibility, if (showSecret) "Masquer" else "Afficher")
                 }
             },
-            supportingText = { Text("Nom: valeur, ex. CF-Access-Client-Id: … et CF-Access-Client-Secret: …") },
+            supportingText = { Text("Le service token de l'application Access du proxy. Vides sans Cloudflare.") },
         )
         OutlinedTextField(
             subs, { subs = it }, label = { Text("Subreddits") }, modifier = Modifier.fillMaxWidth(),
@@ -130,3 +136,10 @@ fun RedditSettings(vm: MainViewModel) {
         OutlinedButton(onClick = { vm.app.redditClient.clearCache(); cacheBytes = 0 }, enabled = cacheBytes > 0) { Text("Vider") }
     }
 }
+
+private const val CF_ID = "CF-Access-Client-Id"
+private const val CF_SECRET = "CF-Access-Client-Secret"
+
+/** The service token as the two headers Cloudflare Access reads; none for an empty field. */
+private fun cloudflareHeaders(id: String, secret: String): List<Pair<String, String>> =
+    listOfNotNull(id.trim().takeIf { it.isNotEmpty() }?.let { CF_ID to it }, secret.trim().takeIf { it.isNotEmpty() }?.let { CF_SECRET to it })
