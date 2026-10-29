@@ -278,7 +278,7 @@ fun RedditSection(vm: MainViewModel) {
             FilterChip(r.filter == null, { r.filter = null }, { Text("Tous") })
             r.config.subs.forEach { s -> FilterChip(r.filter == s, { r.filter = if (r.filter == s) null else s }, { Text("r/$s") }) }
         }
-        if (feed.stale) SuiteBanner(staleNotice(feed.fetched), title = "Pas à jour", tone = app.grimoire.suite.Tone.Info)
+        if (feed.stale) SuiteBanner(staleNotice(feed.fetched), title = "Pas à jour")
         val list = rememberLazyListState()
         val nearEnd by remember { derivedStateOf { list.layoutInfo.visibleItemsInfo.lastOrNull()?.index?.let { it >= list.layoutInfo.totalItemsCount - 4 } == true } }
         // Filtered, the end of the list may hold no new match: older pages load on demand only.
