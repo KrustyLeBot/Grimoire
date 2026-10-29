@@ -47,6 +47,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
@@ -100,9 +102,9 @@ fun HomeScreen(vm: MainViewModel) {
         bottomBar = {
             // Lecture | Reddit, once Reddit is set up in the settings.
             if (vm.reddit.config.configured) {
-                androidx.compose.material3.NavigationBar {
+                NavigationBar {
                     Section.entries.forEach { sec ->
-                        androidx.compose.material3.NavigationBarItem(
+                        NavigationBarItem(
                             selected = vm.section == sec, onClick = { vm.section = sec },
                             icon = {
                                 Icon(
