@@ -57,6 +57,7 @@ import app.grimoire.reddit.RedditComment
 import app.grimoire.reddit.RedditPost
 import app.grimoire.reddit.ago
 import app.grimoire.reddit.compactCount
+import app.grimoire.reddit.staleNotice
 import app.grimoire.suite.SuiteBanner
 import app.grimoire.suite.SuiteTopBar
 
@@ -114,7 +115,7 @@ fun RedditThreadScreen(vm: MainViewModel, s: Screen.RedditThread) {
                 } else Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
                 return@Column
             }
-            if (thread?.stale == true) SuiteBanner("Copie gardée sur le téléphone : le proxy n'a pas pu joindre Reddit.", title = "Hors ligne")
+            if (thread?.stale == true) SuiteBanner(staleNotice(thread?.fetched ?: 0), title = "Pas à jour")
             val visible = if (thread != null) visibleComments(thread.comments, collapsed) else emptyList()
             LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
                 if (post != null) item(key = "post") {

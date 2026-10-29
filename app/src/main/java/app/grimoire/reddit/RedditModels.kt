@@ -154,6 +154,12 @@ fun compactCount(n: Int): String {
     }
 }
 
+/** The notice of an outdated copy (Reddit throttled the proxy, or could not be reached). */
+fun staleNotice(fetched: Long): String {
+    val at = if (fetched > 0) java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(fetched * 1000)) else null
+    return listOfNotNull("Reddit limite ou bloque les requêtes", at?.let { "copie de $it" }).joinToString(" · ")
+}
+
 /** "il y a 3 h", "il y a 2 j"… from a Unix time in seconds. */
 fun ago(created: Long, now: Long = System.currentTimeMillis() / 1000): String {
     val s = (now - created).coerceAtLeast(0)

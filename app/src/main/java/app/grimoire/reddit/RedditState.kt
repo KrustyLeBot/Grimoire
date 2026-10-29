@@ -14,6 +14,8 @@ data class FeedView(
     val loading: Boolean = false,
     val error: String? = null,
     val stale: Boolean = false,
+    /** When the proxy fetched it from Reddit (Unix seconds), for the "not up to date" notice. */
+    val fetched: Long = 0,
     val loaded: Boolean = false,
 ) {
     val end: Boolean get() = loaded && after == null
@@ -69,7 +71,7 @@ class RedditState(
         scope.launch {
             feeds[key] = try {
                 val f = client.feed(s, srt, per, null, online(), refresh)
-                FeedView(f.posts, f.after, stale = f.stale, loaded = true)
+                FeedView(f.posts, f.after, stale = f.stale, fetched = f.fetched, loaded = true)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
