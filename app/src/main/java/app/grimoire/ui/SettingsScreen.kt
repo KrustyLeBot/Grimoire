@@ -93,7 +93,7 @@ fun SettingsScreen(vm: MainViewModel) {
             SettingsCard {
                 Toggle("Wi-Fi uniquement", "Les téléchargements attendent le Wi-Fi", wifiOnly) { wifiOnly = it; settings.wifiOnlyDownloads = it }
                 Text("Espace utilisé : ${size / 1_000_000} Mo", fontWeight = FontWeight.SemiBold)
-                SettingsHint("Gardés sur le téléphone seulement : ils ne passent pas par Proton Drive.")
+                SettingsHint("Gardés sur le téléphone seulement : ils ne sont pas synchronisés.")
                 OutlinedButton(onClick = { confirmDelete = true }, enabled = size > 0) { Text("Tout supprimer") }
             }
 

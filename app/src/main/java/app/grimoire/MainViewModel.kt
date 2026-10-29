@@ -140,7 +140,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     syncing = false
                     if (wasSyncing) store.load() // applies what waited
                     when {
-                        state is SyncState.Failed -> show("Échec de la synchro Proton Drive")
+                        state is SyncState.Failed -> show("Échec de la synchro")
                         state is SyncState.Skipped && state.reason == SkipReason.NEEDS_SETUP -> show("Termine la configuration dans Synchrotron")
                     }
                 }

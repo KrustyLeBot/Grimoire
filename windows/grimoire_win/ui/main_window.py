@@ -30,7 +30,8 @@ def ask_workdir(parent, first_run: bool, start: Path | None = None) -> Path | No
     if first_run:
         QMessageBox.information(
             parent, "Grimoire",
-            "Choisis le dossier Grimoire synchronisé par Proton Drive (celui qui correspond à Documents/Grimoire sur le téléphone).\n"
+            "Choisis le dossier Grimoire synchronisé avec le téléphone (Documents/Grimoire) : celui du client Proton Drive, "
+            "ou Apps/Grimoire sur le partage du serveur Synchrotron.\n"
             "S'il est vide, Grimoire y créera ta bibliothèque.")
     chosen = QFileDialog.getExistingDirectory(parent, "Dossier Grimoire", str(start or Path.home()))
     return Path(chosen) if chosen else None

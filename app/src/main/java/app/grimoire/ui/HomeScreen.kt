@@ -122,7 +122,7 @@ private fun Banners(vm: MainViewModel, online: Boolean, storeError: String?) {
     storeError?.let { SuiteBanner(it, tone = Tone.Error, title = "Fichier illisible", icon = Icons.Default.ErrorOutline) }
     if (!vm.storageOk) {
         SuiteBanner(
-            "Autorise l'accès aux fichiers pour garder ta bibliothèque dans Documents/Grimoire et la synchroniser avec Proton Drive.",
+            "Autorise l'accès aux fichiers pour garder ta bibliothèque dans Documents/Grimoire et la synchroniser avec Synchrotron.",
             tone = Tone.Accent, icon = Icons.Default.Folder,
         ) {
             TextButton(onClick = {
@@ -135,7 +135,7 @@ private fun Banners(vm: MainViewModel, online: Boolean, storeError: String?) {
         }
     }
     if (!online) SuiteBanner("Seuls les chapitres téléchargés sont lisibles.", title = "Hors ligne", icon = Icons.Default.CloudOff)
-    if (vm.syncing) SuiteBanner("Tes lectures se synchronisent ; ce que tu lis entre-temps est gardé.", title = "Synchronisation avec Proton Drive", icon = Icons.Default.Sync, progress = -1f)
+    if (vm.syncing) SuiteBanner("Tes lectures se synchronisent ; ce que tu lis entre-temps est gardé.", title = "Synchronisation", icon = Icons.Default.Sync, progress = -1f)
     if (vm.importing) SuiteBanner("Import du livre…", progress = -1f)
     vm.notice?.let { SuiteBanner(it) }
 }

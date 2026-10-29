@@ -7,11 +7,11 @@ top of the files when they are re-read after a sync brought a new version. Every
 """
 from __future__ import annotations
 
-import os
+import time
 from pathlib import Path
 from typing import Callable
 
-from . import codec
+from . import atomic, codec
 from .model import AppData, SourceConfig
 from .ops import Op
 
@@ -102,25 +102,28 @@ class Store:
             if now != self._written:
                 ignore = self.root / ".syncignore"
                 if not ignore.exists():
-                    ignore.write_text(SYNCIGNORE_TEXT, encoding="utf-8")
+                    atomic.write_text(ignore, SYNCIGNORE_TEXT)
             self._written = now
             self._pending.clear()
         except OSError as e:
             self.error = f"Enregistrement impossible : {e}"
 
     def _read(self, name: str) -> str | None:
+        """A sync may be replacing the file: a parse failure is read again once before being reported."""
         path = self.root / name
-        if not path.exists():
-            return None
-        text = path.read_text(encoding="utf-8")
-        try:
-            codec._root(text)
-        except ValueError as e:
-            raise ValueError(f"{path} est illisible ({e}). Il ne sera pas modifié.") from e
-        return text
+        for attempt in range(2):
+            try:
+                text = path.read_text(encoding="utf-8")
+            except FileNotFoundError:
+                return None
+            try:
+                codec._root(text)
+                return text
+            except ValueError as e:
+                if attempt == 1:
+                    raise ValueError(f"{path} est illisible ({e}). Il ne sera pas modifié.") from e
+                time.sleep(0.3)
+        return None
 
     def _save(self, name: str, text: str) -> None:
-        target = self.root / name
-        tmp = self.root / f"{name}.tmp"
-        tmp.write_text(text, encoding="utf-8")
-        os.replace(tmp, target)
+        atomic.write_text(self.root / name, text)

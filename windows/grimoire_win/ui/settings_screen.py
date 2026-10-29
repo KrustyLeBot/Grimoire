@@ -66,7 +66,7 @@ class SettingsScreen(QWidget):
         self.folder = w.label(str(self.app.store.root))
         self.folder.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         card.body.addWidget(self.folder)
-        card.body.addWidget(w.label("Le dossier que Proton Drive synchronise avec Documents/Grimoire du téléphone : bibliothèque, "
+        card.body.addWidget(w.label("Le dossier synchronisé avec Documents/Grimoire du téléphone : bibliothèque, "
                                     "lectures, sources et recherches web y sont partagées.", "hint"))
         card.body.addWidget(w.button("Choisir un autre dossier", "outlined", self.window.choose_workdir), 0, Qt.AlignmentFlag.AlignLeft)
 
@@ -108,7 +108,7 @@ class SettingsScreen(QWidget):
         card = self.section("Téléchargements")
         self.downloads_size = w.label("")
         card.body.addWidget(self.downloads_size)
-        card.body.addWidget(w.label("Chapitres gardés sur cet ordinateur seulement : ils ne passent pas par Proton Drive.", "hint"))
+        card.body.addWidget(w.label("Chapitres gardés sur cet ordinateur seulement : ils ne sont pas synchronisés.", "hint"))
         card.body.addWidget(w.button("Tout supprimer", "outlined", self._delete_downloads), 0, Qt.AlignmentFlag.AlignLeft)
 
         card = self.section("Livres")
@@ -127,10 +127,10 @@ class SettingsScreen(QWidget):
         card.body.addWidget(w.button("Ajouter un site", "outlined", lambda: self._edit_search(None, WebSearch("", "https://"))),
                             0, Qt.AlignmentFlag.AlignLeft)
 
-        card = self.section("Synchronisation Proton Drive")
-        card.body.addWidget(w.label("Par le client Proton Drive", wrap=False))
-        card.body.addWidget(w.label("Sur l'ordinateur, c'est l'application Proton Drive qui synchronise le dossier Grimoire ; Grimoire "
-                                    "relit les fichiers dès qu'un autre appareil les modifie.", "hint"))
+        card = self.section("Synchronisation")
+        card.body.addWidget(w.label("Par le client Proton Drive ou le serveur Synchrotron", wrap=False))
+        card.body.addWidget(w.label("Sur l'ordinateur, le dossier Grimoire est celui du client Proton Drive, ou celui du serveur "
+                                    "Synchrotron ouvert en réseau (SMB). Grimoire relit les fichiers dès qu'un autre appareil les modifie.", "hint"))
 
         card = self.section("Mise à jour")
         card.body.addWidget(w.label(f"Build {updater.current_build()}"))

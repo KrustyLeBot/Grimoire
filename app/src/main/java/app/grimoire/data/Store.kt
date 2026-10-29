@@ -104,31 +104,21 @@ class Store(private val context: Context) {
         }
     }
 
+    /** A sync may be replacing the file: a parse failure is read again once before being reported. */
     private fun read(name: String): String? {
         val f = File(dir, name)
-        if (!f.exists()) return null
-        val text = f.readText()
         return try {
-            org.json.JSONObject(text)
-            text
-        } catch (e: Exception) {
-            throw IllegalStateException("${f.path} est illisible (${e.message}). Il ne sera pas modifié.")
+            AtomicFiles.read(f) { text -> org.json.JSONObject(text); text }
+        } catch (e: UnreadableFileException) {
+            throw IllegalStateException("${f.path} est illisible. Il ne sera pas modifié.")
         }
     }
 
-    private fun save(name: String, text: String) {
-        val target = File(dir, name)
-        val tmp = File(dir, "$name.tmp")
-        tmp.writeText(text)
-        if (!tmp.renameTo(target)) {
-            tmp.delete()
-            throw IllegalStateException("$name n'a pas pu être remplacé")
-        }
-    }
+    private fun save(name: String, text: String) = AtomicFiles.write(File(dir, name), text)
 
     private fun ensureSyncIgnore() {
         val f = File(dir, ".syncignore")
-        if (!f.exists()) f.writeText("# Read by Synchrotron: downloads and caches live in the app's private storage, nothing to exclude here.\n")
+        if (!f.exists()) AtomicFiles.write(f, "# Read by Synchrotron: downloads and caches live in the app's private storage, nothing to exclude here.\n")
     }
 
     /** Once access is granted, the private files move to the folder; a file already there wins. */

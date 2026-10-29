@@ -41,14 +41,14 @@ the app and stored in a synced file. A new source type comes with an app update.
 
 Needs "all files access" (asked on first launch). Until granted, the same files live in the app's
 private storage and move to the folder once access is given (a file already in the folder wins).
-All files are JSON with `format_version: 1`, written atomically (`.tmp` + rename). An unreadable
+All files are JSON with `format_version: 1`, written atomically (`.<name>.synctmp-<uuid>`, flushed to disk, then renamed over the file; a parse failure is read again once before being reported). An unreadable
 file is reported and never overwritten.
 
 - `sources.json` — `{"format_version":1,"sources":[{"id","type","name","baseUrl","enabled","options":{…}}]}`
 - `library.json` — `{"format_version":1,"items":[{"source","slug","title","cover","kind","added"}]}`
 - `progress.json` — per series (key `source:slug`): `read` = map chapter id → time read,
   `last` = `{chapter, page, pages, at}`, `mode` = reader mode, `finished` = time or null.
-- `.syncignore` — nothing else should ever be there, but `*.tmp` and the like are excluded anyway.
+- `.syncignore` — nothing else should ever be there, but temporaries (`.*.synctmp-*`, `*.tmp`) are excluded by Synchrotron anyway.
 
 Chapter ids are the source's own (Poseidon: the chapter number as text, "12", "12.5").
 
