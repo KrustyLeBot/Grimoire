@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import QFileSystemWatcher, QTimer
+from PySide6.QtCore import QEvent, QFileSystemWatcher, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QApplication, QFileDialog, QFrame, QHBoxLayout, QLabel, QMainWindow, QMessageBox, QStackedWidget
 
@@ -70,13 +70,18 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+O"), self, activated=self.pick_book)
         QShortcut(QKeySequence("F11"), self, activated=lambda: self.showNormal() if self.isFullScreen() else self.showFullScreen())
 
-        # Proton Drive can bring another device's files at any time: debounce, then re-read.
+        # Another device's files can come in at any time (Proton Drive client, server share): debounce, then re-read.
         self.watcher = QFileSystemWatcher(self)
         self.watch_timer = QTimer(self, singleShot=True, interval=1000)
         self.watch_timer.timeout.connect(self._disk_changed)
         self.watcher.directoryChanged.connect(lambda _: self.watch_timer.start())
         self.watcher.fileChanged.connect(lambda _: self.watch_timer.start())
         self._watch()
+        # Over the server's SMB share Windows does not always report changes: also look every 30 s and
+        # whenever the window comes back to the front (cheap: re-reads three small files).
+        self.poll_timer = QTimer(self, interval=30_000)
+        self.poll_timer.timeout.connect(self._disk_changed)
+        self.poll_timer.start()
 
         self._cleanup_timer = QTimer(self)
         self._cleanup_timer.timeout.connect(lambda: updater.cleanup_previous() and self._cleanup_timer.stop())
@@ -194,6 +199,11 @@ class MainWindow(QMainWindow):
             files = [str(root / n) for n in ("sources.json", "library.json", "progress.json") if (root / n).exists()]
             if files:
                 self.watcher.addPaths(files)
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.ActivationChange and self.isActiveWindow():
+            self._disk_changed()
 
     def _disk_changed(self) -> None:
         self._watch()  # a file replaced by a rename is no longer watched
