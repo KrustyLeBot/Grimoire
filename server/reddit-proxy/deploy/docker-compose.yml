@@ -1,0 +1,37 @@
+# /volume1/docker/reddit-proxy/docker-compose.yml — secrets in .env next to it (see .env.example).
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  reddit-proxy:
+    image: ghcr.io/krustylebot/grimoire-reddit-proxy:latest
+    container_name: reddit-proxy
+    restart: unless-stopped
+    logging: *logging
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    mem_limit: 64m
+    env_file: .env
+    environment:
+      TZ: Europe/Paris
+      DATA_DIR: /data
+    volumes:
+      - /volume1/docker/reddit-proxy/data:/data
+    ports:
+      - "${PROXY_PORT:-8095}:8080"
+    healthcheck:
+      test: ["CMD", "/reddit-proxy", "-health"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+    networks:
+      - default
+      - tunnel
+
+networks:
+  tunnel:
+    external: true

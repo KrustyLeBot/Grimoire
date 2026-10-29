@@ -4,7 +4,7 @@ name: Build APK
 on:
   push:
     branches: [main]
-    paths-ignore: ['**.md']
+    paths-ignore: ['**.md', 'server/**', '.github/workflows/reddit-proxy.yml']
   pull_request:
   workflow_dispatch:
 
