@@ -62,7 +62,10 @@ followed feeds fresh and respects Reddit's rate limit.
   proxy accepted them (`POST /watch`).
 - **Feed**: one request brings the latest posts (`new`) of every followed subreddit at once
   (`r/a+b+c`); the subreddit chips only filter what is already there. Scrolling loads older pages
-  (with a filter, on demand). **Thread**: the post comes from the feed and shows with no request;
+  (with a filter, on demand). **Post**: opens its reddit.com page in a WebView inside Grimoire (real
+  comment tree and sorting; the Reddit login made there once is kept with the WebView's cookies;
+  links leaving Reddit open in the browser). Offline, the native view below takes over.
+  **Native thread**: the post comes from the feed and shows with no request;
   comments load only on « Afficher les commentaires ». Comments with coloured indentation, folded
   by a tap, OP and moderators marked, « Voir N autres réponses » and « Continuer la discussion »
   when the proxy reads the API (with RSS they come flat, without scores).

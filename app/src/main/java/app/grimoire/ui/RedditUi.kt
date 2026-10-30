@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -40,6 +39,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -292,6 +292,7 @@ private fun Preview(post: RedditPost) {
 @Composable
 fun RedditSection(vm: MainViewModel) {
     val r = vm.reddit
+    val online by vm.app.online.collectAsState()
     val feed = r.feed
     val shown = r.shown
     LaunchedEffect(r.config) { r.load() }
@@ -306,7 +307,7 @@ fun RedditSection(vm: MainViewModel) {
             r.config.subs.forEach { s -> FilterChip(r.filter == s, { r.filter = if (r.filter == s) null else s }, { Text("r/$s") }) }
         }
         if (feed.stale) SuiteBanner(staleNotice(feed.fetched), title = "Pas à jour")
-        val list = rememberLazyListState()
+        val list = r.list
         val nearEnd by remember { derivedStateOf { list.layoutInfo.visibleItemsInfo.lastOrNull()?.index?.let { it >= list.layoutInfo.totalItemsCount - 4 } == true } }
         // Filtered, the end of the list may hold no new match: older pages load on demand only.
         LaunchedEffect(nearEnd, feed.posts.size) { if (nearEnd && !feed.end && r.filter == null) r.loadMore() }
@@ -323,7 +324,11 @@ fun RedditSection(vm: MainViewModel) {
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(shown, key = { it.id }) { p ->
-                    PostCard(p, showSub = r.filter == null) { vm.open(Screen.RedditThread(p.id, null, p.sub)) }
+                    // The post's Reddit page (real comments, login kept); offline, the copy kept here.
+                    PostCard(p, showSub = r.filter == null) {
+                        if (online) vm.open(Screen.RedditWeb("https://www.reddit.com${p.permalink}", p.sub))
+                        else vm.open(Screen.RedditThread(p.id, null, p.sub))
+                    }
                 }
                 item {
                     Box(Modifier.fillMaxWidth().padding(16.dp), Alignment.Center) {

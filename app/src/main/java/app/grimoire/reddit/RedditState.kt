@@ -45,6 +45,9 @@ class RedditState(
      */
     var filter by mutableStateOf<String?>(null)
 
+    /** Where the list was scrolled: kept while a post is open, so going back lands on the same place. */
+    val list = androidx.compose.foundation.lazy.LazyListState()
+
     val feeds = mutableStateMapOf<String, FeedView>()
     val threads = mutableStateMapOf<String, ThreadView>()
 
