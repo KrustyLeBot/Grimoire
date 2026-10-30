@@ -113,6 +113,8 @@ private fun aspectOf(w: Int, h: Int) = if (w > 0 && h > 0) w.toFloat() / h else 
 @Composable
 fun PostMedia(post: RedditPost, modifier: Modifier = Modifier) {
     var revealed by rememberSaveable(post.id) { mutableStateOf(!post.nsfw && !post.spoiler) }
+    var viewing by remember(post.id) { mutableStateOf<Int?>(null) } // image opened full screen
+    viewing?.let { i -> ImageViewer(post.images.map { it.url }, i) { viewing = null } }
     if (!revealed && post.kind != MediaKind.TEXT && post.kind != MediaKind.LINK) {
         Hidden(post, modifier) { revealed = true }
         return
@@ -122,7 +124,8 @@ fun PostMedia(post: RedditPost, modifier: Modifier = Modifier) {
             if (img.mp4 != null) VideoPlayer(img.mp4, aspectOf(img.width, img.height), loop = true, modifier = modifier)
             else AsyncImage(
                 img.url, null, contentScale = ContentScale.Fit,
-                modifier = modifier.fillMaxWidth().aspectRatio(aspectOf(img.width, img.height).coerceIn(0.4f, 3f)).clip(MaterialTheme.shapes.medium),
+                modifier = modifier.fillMaxWidth().aspectRatio(aspectOf(img.width, img.height).coerceIn(0.4f, 3f)).clip(MaterialTheme.shapes.medium)
+                    .clickable { viewing = 0 },
             )
         }
         MediaKind.GALLERY -> {
@@ -131,7 +134,7 @@ fun PostMedia(post: RedditPost, modifier: Modifier = Modifier) {
                 val first = post.images.first()
                 HorizontalPager(pager, Modifier.fillMaxWidth().aspectRatio(aspectOf(first.width, first.height).coerceIn(0.5f, 2f))) { i ->
                     val img = post.images[i]
-                    AsyncImage(img.url, img.caption, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                    AsyncImage(img.url, img.caption, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().clickable { viewing = i })
                 }
                 val caption = post.images.getOrNull(pager.currentPage)?.caption
                 Text(
