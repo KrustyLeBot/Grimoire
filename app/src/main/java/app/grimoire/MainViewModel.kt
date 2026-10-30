@@ -17,7 +17,6 @@ import app.grimoire.data.WebSearch
 import app.grimoire.data.Ops
 import app.grimoire.data.SeriesProgress
 import app.grimoire.data.seriesKey
-import app.grimoire.reddit.RedditState
 import app.grimoire.source.Catalog
 import app.grimoire.source.Kind
 import app.grimoire.source.ChapterInfo
@@ -47,17 +46,10 @@ sealed interface Screen {
     data class Book(val id: String) : Screen
     data class BookReader(val id: String) : Screen
     data class Web(val url: String, val title: String) : Screen
-    /** A Reddit thread; [comment] opens the sub-thread under one comment ("continuer la discussion"). */
-    data class RedditThread(val id: String, val comment: String?, val sub: String) : Screen
-    /** A post on reddit.com, in a WebView: real comments, Reddit login kept. */
-    data class RedditWeb(val url: String, val sub: String, val id: String) : Screen
 }
 
 /** The "Lecture" section's tabs. */
 enum class Tab(val label: String) { LIBRARY("Bibliothèque"), DISCOVER("Découvrir"), SEARCH("Recherche") }
-
-/** The home screen's sections, in the bottom bar once Reddit is set up. */
-enum class Section(val label: String) { READING("Lecture"), REDDIT("Reddit") }
 
 enum class Feed(val label: String) { LATEST("Récents"), POPULAR("Populaires") }
 
@@ -82,7 +74,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private set
     val screen get() = stack.last()
     var tab by mutableStateOf(Tab.LIBRARY)
-    var section by mutableStateOf(Section.READING)
 
     fun open(s: Screen) {
         stack = stack + s
@@ -113,10 +104,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    val reddit = RedditState(app.redditClient, app.redditConfig, viewModelScope, { app.online.value }) { show(it) }
-
     fun onOpen() {
-        reddit.onOpen()
         val access = store.hasStorageAccess()
         if (access != storageOk) {
             storageOk = access

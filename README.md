@@ -48,35 +48,6 @@ of configured instances can exist (another address if the site moves, options, l
 Poseidon Scans needs no account; premium chapters need a premium login, done in a WebView from
 the source's settings. Protocol details: [docs/SPECS.md](docs/SPECS.md).
 
-## Reddit (Android)
-
-A « Lecture | Reddit » bar appears at the bottom of the home screen once Reddit is set up in
-Paramètres › Reddit. The app never talks to Reddit: it reads the JSON of the self-hosted proxy
-[KrustyLeBot/RedditProxy](https://github.com/KrustyLeBot/RedditProxy), which caches, keeps the
-followed feeds fresh and respects Reddit's rate limit.
-
-- **Settings** (device only, encrypted with an Android Keystore key, never in the synced folder):
-  proxy address (an example address by default: the real one is entered on the phone), optional LAN
-  address used whenever it answers, login (Basic auth, sent up front), Cloudflare Access service token
-  (Client ID and Secret, sent as `CF-Access-Client-Id` / `CF-Access-Client-Secret`), subreddits. Saved only once the
-  proxy accepted them (`POST /watch`).
-- **Feed**: one request brings the latest posts (`new`) of every followed subreddit at once
-  (`r/a+b+c`); the subreddit chips only filter what is already there. Scrolling loads older pages
-  (with a filter, on demand). **Post**: opens its reddit.com page in a WebView inside Grimoire (real
-  comment tree and sorting; the Reddit login made there once is kept with the WebView's cookies;
-  links leaving Reddit open in the browser). Offline, the native view below takes over.
-  **Native thread**: the post comes from the feed and shows with no request;
-  comments load only on « Afficher les commentaires ». Comments with coloured indentation, folded
-  by a tap, OP and moderators marked, « Voir N autres réponses » and « Continuer la discussion »
-  when the proxy reads the API (with RSS they come flat, without scores).
-- **Watch**: at each start the app sends its one feed to the proxy (replacing what it watched
-  before), which refreshes it in the background; a proxy that lost its list gets it back.
-- **Offline**: every feed page and thread fetched is kept in the cache folder; when the proxy cannot
-  be reached the last copy is shown with a « Hors ligne » banner.
-
-Code: `app/src/main/java/app/grimoire/reddit/` (config, client, models, state) and
-`ui/Reddit*.kt`.
-
 ## Windows app
 
 `windows/`: the same app for the computer (Python, PySide6 with Qt WebEngine, one `Grimoire.exe`),

@@ -36,8 +36,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Forum
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -47,8 +45,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
@@ -75,7 +71,6 @@ import androidx.compose.foundation.horizontalScroll
 import app.grimoire.Feed
 import app.grimoire.Lister
 import app.grimoire.MainViewModel
-import app.grimoire.Section
 import app.grimoire.Screen
 import app.grimoire.book.Books
 import app.grimoire.Tab as HomeTab
@@ -99,32 +94,7 @@ fun HomeScreen(vm: MainViewModel) {
                 IconButton(onClick = { vm.open(Screen.Settings) }) { Icon(Icons.Default.Settings, "Paramètres") }
             }
         },
-        bottomBar = {
-            // Lecture | Reddit, once Reddit is set up in the settings.
-            if (vm.reddit.config.configured) {
-                NavigationBar {
-                    Section.entries.forEach { sec ->
-                        NavigationBarItem(
-                            selected = vm.section == sec, onClick = { vm.section = sec },
-                            icon = {
-                                Icon(
-                                    if (sec == Section.READING) Icons.Default.MenuBook else Icons.Default.Forum, null,
-                                )
-                            },
-                            label = { Text(sec.label) },
-                        )
-                    }
-                }
-            }
-        },
     ) { padding ->
-        if (vm.section == Section.REDDIT && vm.reddit.config.configured) {
-            Column(Modifier.padding(padding).fillMaxSize()) {
-                Banners(vm, online, storeError)
-                RedditSection(vm)
-            }
-            return@Scaffold
-        }
         Column(Modifier.padding(padding).fillMaxSize()) {
             Banners(vm, online, storeError)
             TabRow(selectedTabIndex = vm.tab.ordinal) {

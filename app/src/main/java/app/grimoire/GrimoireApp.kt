@@ -1,7 +1,5 @@
 package app.grimoire
 
-import app.grimoire.reddit.RedditClient
-import app.grimoire.reddit.RedditConfigStore
 import android.app.Application
 import app.grimoire.book.BookLookup
 import app.grimoire.book.Books
@@ -37,8 +35,6 @@ class GrimoireApp : Application(), SingletonImageLoader.Factory {
     val settings by lazy { Settings(this) }
     val books by lazy { Books(this, http) }
     val lookup by lazy { BookLookup(http) }
-    val redditConfig by lazy { RedditConfigStore(this) }
-    val redditClient by lazy { RedditClient(redditConfig, cacheDir) }
 
     /** Work that outlives a screen (marking a chapter read when leaving the reader, say). */
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
