@@ -50,7 +50,7 @@ sealed interface Screen {
     /** A Reddit thread; [comment] opens the sub-thread under one comment ("continuer la discussion"). */
     data class RedditThread(val id: String, val comment: String?, val sub: String) : Screen
     /** A post on reddit.com, in a WebView: real comments, Reddit login kept. */
-    data class RedditWeb(val url: String, val sub: String) : Screen
+    data class RedditWeb(val url: String, val sub: String, val id: String) : Screen
 }
 
 /** The "Lecture" section's tabs. */

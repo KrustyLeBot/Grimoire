@@ -326,7 +326,7 @@ fun RedditSection(vm: MainViewModel) {
                 items(shown, key = { it.id }) { p ->
                     // The post's Reddit page (real comments, login kept); offline, the copy kept here.
                     PostCard(p, showSub = r.filter == null) {
-                        if (online) vm.open(Screen.RedditWeb("https://www.reddit.com${p.permalink}", p.sub))
+                        if (online) vm.open(Screen.RedditWeb("https://www.reddit.com${p.permalink}", p.sub, p.id))
                         else vm.open(Screen.RedditThread(p.id, null, p.sub))
                     }
                 }
