@@ -73,6 +73,7 @@ import app.grimoire.reddit.MediaKind
 import app.grimoire.reddit.RedditPost
 import app.grimoire.reddit.ago
 import app.grimoire.reddit.compactCount
+import app.grimoire.reddit.galleryLink
 import app.grimoire.reddit.staleNotice
 import app.grimoire.suite.SuiteBanner
 import coil3.compose.AsyncImage
@@ -203,6 +204,29 @@ fun PostStats(post: RedditPost) {
     }
 }
 
+/** A gallery known only by its thumbnail: [onClick] (in a thread) opens it on Reddit. */
+@Composable
+fun GalleryLink(post: RedditPost, onClick: (() -> Unit)? = null) {
+    Box(
+        Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .let { if (onClick != null) it.clickable(onClick = onClick) else it },
+    ) {
+        if (post.thumb != null && !post.nsfw && !post.spoiler) {
+            AsyncImage(post.thumb, null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+        }
+        Surface(
+            color = Color.Black.copy(alpha = 0.65f), contentColor = Color.White, shape = MaterialTheme.shapes.small,
+            modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
+        ) {
+            Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Collections, null, Modifier.size(16.dp))
+                Text(" Galerie · ouvrir sur Reddit", style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+}
+
 /** One post in a feed: what it is about at a glance, light on data (thumbnails, no players). */
 @Composable
 fun PostCard(post: RedditPost, showSub: Boolean, onClick: () -> Unit) {
@@ -215,7 +239,7 @@ fun PostCard(post: RedditPost, showSub: Boolean, onClick: () -> Unit) {
             Flair(post.flair, post.flairColor)
             Row(verticalAlignment = Alignment.Top) {
                 Text(post.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                if (post.kind == MediaKind.LINK && post.thumb != null && !post.nsfw) {
+                if (post.kind == MediaKind.LINK && !post.galleryLink && post.thumb != null && !post.nsfw) {
                     AsyncImage(post.thumb, null, contentScale = ContentScale.Crop, modifier = Modifier.padding(start = 8.dp).size(72.dp).clip(MaterialTheme.shapes.small))
                 }
             }
@@ -223,7 +247,7 @@ fun PostCard(post: RedditPost, showSub: Boolean, onClick: () -> Unit) {
                 MediaKind.TEXT -> post.text?.takeIf { it.isNotBlank() }?.let {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
-                MediaKind.LINK -> post.domain?.let {
+                MediaKind.LINK -> if (post.galleryLink) GalleryLink(post) else post.domain?.let {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Link, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                         Text(" $it", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)

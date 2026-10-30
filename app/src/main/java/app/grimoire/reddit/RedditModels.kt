@@ -141,6 +141,12 @@ object RedditJson {
     fun more(text: String): List<RedditComment> = comments(JSONObject(text).optJSONArray("comments"))
 }
 
+/**
+ * A gallery whose images did not come with the post (Reddit's RSS only gives the link and a
+ * thumbnail): shown as its thumbnail, opened on Reddit.
+ */
+val RedditPost.galleryLink: Boolean get() = kind == MediaKind.LINK && url?.contains("reddit.com/gallery/") == true
+
 /** 1 234 → "1,2 k", the way Reddit shows scores (French decimal comma, whatever the locale). */
 fun compactCount(n: Int): String {
     fun tenths(unit: Int, suffix: String): String {

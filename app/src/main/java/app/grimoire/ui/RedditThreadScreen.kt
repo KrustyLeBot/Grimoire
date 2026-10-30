@@ -57,6 +57,7 @@ import app.grimoire.reddit.RedditComment
 import app.grimoire.reddit.RedditPost
 import app.grimoire.reddit.ago
 import app.grimoire.reddit.compactCount
+import app.grimoire.reddit.galleryLink
 import app.grimoire.reddit.staleNotice
 import app.grimoire.suite.SuiteBanner
 import app.grimoire.suite.SuiteTopBar
@@ -180,7 +181,9 @@ private fun PostHeader(post: RedditPost, partial: Boolean, onOpenUrl: (String) -
         Text(post.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         PostMedia(post)
         post.html?.takeIf { it.isNotBlank() }?.let { HtmlText(it) }
-        if (post.kind == MediaKind.LINK && post.url != null) {
+        if (post.galleryLink && post.url != null) {
+            GalleryLink(post) { onOpenUrl(post.url) }
+        } else if (post.kind == MediaKind.LINK && post.url != null) {
             OutlinedCard(onClick = { onOpenUrl(post.url) }, modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Link, null, tint = MaterialTheme.colorScheme.primary)
